@@ -1,3 +1,5 @@
+> **已被 v0.2 精简版取代**：见 [proposal.html](proposal.html)（在线版：https://claude.ai/artifact/P9UuV227MgGcrCiCQNnFji）。本文件保留为 v0.1 完整版。
+
 # 项目完整方案：基于 LLM Agent 的连续处理因果推断系统（GPS-DID × AI）
 
 > 版本 v0.1 ｜ 2026-10 ｜ 作者：zhangwuziyang

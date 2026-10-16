@@ -1,0 +1,315 @@
+<title>GPS-DID 因果 Agent 研究计划</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~46rem) with a sticky section index on wide screens; tables and the flowchart scroll in their own boxes */
+:root{
+  --bg:#f6f7f9; --surface:#ffffff; --fg:#1b2230; --muted:#5a6475; --line:#d9dee6;
+  --accent:#1f5f8b; --accent-soft:#e3eef6; --gate:#a5620a; --gate-soft:#fbf0de; --ok:#2d7a4f; --ok-soft:#e2f2e8; --cut:#9a3b3b; --cut-soft:#f7e6e6;
+  --f-display:"Noto Serif SC","Songti SC",serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161d; --surface:#1a2029; --fg:#e4e8ef; --muted:#9aa4b4; --line:#2e3644;
+  --accent:#7db4dc; --accent-soft:#1d3142; --gate:#e2a54f; --gate-soft:#3a2c17; --ok:#74c497; --ok-soft:#183326; --cut:#e08b8b; --cut-soft:#3a1f1f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161d; --surface:#1a2029; --fg:#e4e8ef; --muted:#9aa4b4; --line:#2e3644;
+  --accent:#7db4dc; --accent-soft:#1d3142; --gate:#e2a54f; --gate-soft:#3a2c17; --ok:#74c497; --ok-soft:#183326; --cut:#e08b8b; --cut-soft:#3a1f1f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15.5px;line-height:1.75;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 80px}
+.wrap{max-width:68rem;margin:0 auto;display:grid;grid-template-columns:13rem minmax(0,1fr);gap:48px}
+nav{position:sticky;top:calc(24px + env(safe-area-inset-top,0px));align-self:start;font-size:13px}
+nav ol{list-style:none;margin:0;padding:0;display:grid;gap:4px;border-left:1px solid var(--line)}
+nav a{display:block;padding:2px 0 2px 12px;color:var(--muted);text-decoration:none}
+nav a:hover,nav a:focus-visible{color:var(--accent)}
+main{min-width:0;max-width:46rem}
+header{display:grid;gap:10px;padding-bottom:28px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:500}
+h1{font-family:var(--f-display);font-size:clamp(26px,4vw,34px);line-height:1.3;margin:0;text-wrap:balance}
+.en{font-family:var(--f-body);color:var(--muted);font-size:15px;margin:0}
+.meta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 18px}
+h2{font-family:var(--f-display);font-size:22px;margin:44px 0 12px;text-wrap:balance;scroll-margin-top:24px}
+h2 .n{font-family:var(--f-mono);font-size:14px;color:var(--accent);margin-right:10px;font-weight:500}
+h3{font-size:16px;margin:26px 0 8px;font-weight:700}
+p{margin:0 0 12px}
+ul,ol.list{margin:0 0 14px;padding-left:1.3em}
+li{margin:3px 0}
+code,.m{font-family:var(--f-mono);font-size:.88em;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+.formula{font-family:var(--f-mono);font-size:13.5px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;white-space:pre;margin:0 0 14px;line-height:1.7}
+.tbl{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{text-align:left;vertical-align:top;padding:8px 12px;border-bottom:1px solid var(--line)}
+th{font-weight:500;color:var(--muted);font-size:12.5px;letter-spacing:.04em;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.summary{display:grid;grid-template-columns:7.5rem minmax(0,1fr);gap:0;border:1px solid var(--line);border-radius:6px;background:var(--surface);margin:20px 0 0}
+.summary dt,.summary dd{margin:0;padding:10px 14px;border-bottom:1px solid var(--line)}
+.summary dt{color:var(--muted);font-size:13px}
+.summary dt:last-of-type,.summary dd:last-of-type{border-bottom:0}
+.tag{display:inline-block;font-size:12px;padding:0 8px;border-radius:999px;line-height:20px;white-space:nowrap;font-weight:500}
+.t-gate{background:var(--gate-soft);color:var(--gate)}
+.t-ok{background:var(--ok-soft);color:var(--ok)}
+.t-cut{background:var(--cut-soft);color:var(--cut)}
+.t-main{background:var(--accent-soft);color:var(--accent)}
+.note{border-left:3px solid var(--gate);background:var(--gate-soft);padding:10px 14px;border-radius:0 6px 6px 0;margin:0 0 14px;font-size:14.5px}
+.flow{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;overflow-x:auto;margin:0 0 10px}
+.flow pre{margin:0;background:none;display:flex;justify-content:center}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13px;color:var(--muted);margin-bottom:16px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:14px;margin:0 0 14px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;min-width:0}
+.box h4{margin:0 0 4px;font-size:14.5px}
+.box p{margin:0;font-size:14px;color:var(--muted)}
+.refs li{font-size:13.5px;color:var(--muted)}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:860px){.wrap{grid-template-columns:minmax(0,1fr);gap:0}nav{display:none}}
+@media (max-width:480px){.summary{grid-template-columns:minmax(0,1fr)}.summary dt{border-bottom:0;padding-bottom:0}}
+</style>
+
+<div class="wrap">
+<nav aria-label="目录"><ol>
+  <li><a href="#s1">1 摘要</a></li>
+  <li><a href="#s2">2 研究问题</a></li>
+  <li><a href="#s3">3 原分析与不足</a></li>
+  <li><a href="#s4">4 方法</a></li>
+  <li><a href="#s5">5 系统设计</a></li>
+  <li><a href="#s6">6 数据</a></li>
+  <li><a href="#s7">7 实验</a></li>
+  <li><a href="#s8">8 时间表</a></li>
+  <li><a href="#s9">9 风险</a></li>
+  <li><a href="#s10">10 删减说明</a></li>
+  <li><a href="#s11">参考文献</a></li>
+</ol></nav>
+
+<main>
+<header>
+  <div class="eyebrow">Research Proposal · v0.2</div>
+  <h1>面向连续处理双重差分的假设把关型分析 Agent</h1>
+  <p class="en">An Assumption-Gated LLM Agent for Continuous-Treatment Difference-in-Differences: Evidence from Cross-Border E-commerce Logistics</p>
+  <div class="meta"><span>zhangwuziyang</span><span>2026-10</span><span>目标：KDD Applied Data Science Track</span><span>周期：16 周</span></div>
+</header>
+
+<h2 id="s1"><span class="n">1</span>摘要</h2>
+<p>跨境电商里，物流妥投天数是一个连续变量。它对用户后续 GMV 的因果影响，可以用广义倾向得分（GPS）结合双重差分（DID）来估计。实习期间的业务分析已经用这套方法得到了"10 天拐点"和增益矩阵，但方法上还有四个缺口：GPS 的正态假设不成立、没有讨论连续 DID 的识别条件、重叠性阈值是人为设的、增益没有置信区间。</p>
+<p>本项目做两件事。第一，把估计方法补严谨：用对数变换加异方差 GBM 估计 GPS，用双稳健估计量（Kennedy et al., 2017）估计剂量响应，配上 bootstrap 推断、有效样本量诊断和 placebo 检验。第二，把这套流程交给一个 LLM Agent 自动执行，但 Agent 只负责规划和解释，计算全部由确定性代码完成，每一步都有可执行的假设检验（Gate），检验不通过就阻断或降级结论。</p>
+<dl class="summary">
+  <dt>贡献 1 · 方法</dt><dd>适用于重尾连续处理的 GPS-DID 双稳健估计与推断流程，并把原业务分析中的经验做法（固定阈值、正态假设）换成有依据的做法。</dd>
+  <dt>贡献 2 · 系统</dt><dd>假设把关型 Agent：语义层 + 确定性引擎 + 5 道 Gate。核心主张是"LLM 不碰数字，假设不过不出结论"。</dd>
+  <dt>贡献 3 · 基准</dt><dd>一个带已知真值、并埋入常见错误（干预后变量、重叠失败、趋势违背）的半合成基准，用来评测因果分析 Agent，代码与数据开源。</dd>
+  <dt>贡献 4 · 实证</dt><dd>物流时效对 GMV 的剂量响应、拐点与带置信区间的增益估计（公开数据 + 内部案例）。</dd>
+</dl>
+
+<h2 id="s2"><span class="n">2</span>研究问题</h2>
+<ol class="list">
+  <li><b>RQ1 方法：</b>处理变量重尾、偏态时，ML-GPS 加双稳健估计相比正态 GPS 两步法，偏误和置信区间覆盖率能改善多少？</li>
+  <li><b>RQ2 系统：</b>带 Gate 的 Agent 能否端到端完成分析，并在假设被违背时正确拦截？它比"让 LLM 直接写代码"好多少？</li>
+  <li><b>RQ3 实证：</b>妥投天数对 GMV 的剂量响应是什么形状，拐点在哪里，缩短时效的增益有多大、有多确定？</li>
+</ol>
+
+<h2 id="s3"><span class="n">3</span>原分析与不足</h2>
+<p>原设计是三窗口队列（美国跨境线，约 140.7 万用户）：</p>
+<div class="tbl"><table>
+  <tr><th>窗口</th><th>时间</th><th>用途</th></tr>
+  <tr><td>pre</td><td class="num">2026-02-14 ~ 04-30</td><td>用户特征（去混淆）、价值分层、pre 期 GMV</td></tr>
+  <tr><td>treatment</td><td class="num">2026-05-01 ~ 05-31</td><td>处理剂量 D：用户平均妥投天数</td></tr>
+  <tr><td>post</td><td class="num">2026-06-01 ~ 08-15（76 天）</td><td>结果 ΔY = post 期 GMV − pre 期 GMV</td></tr>
+</table></div>
+<div class="tbl"><table>
+  <tr><th>#</th><th>不足</th><th>依据</th><th>本项目做法</th></tr>
+  <tr><td>P1</td><td>GPS 正态假设不成立</td><td>全样本偏度 7.1、超额峰度 67.9，只有 6–15 天核心区近似正态，而治理人群恰好在右尾</td><td>§4.3</td></tr>
+  <tr><td>P2</td><td>连续 DID 的识别条件没讨论</td><td>所有人都有剂量，没有未处理组；跨剂量比较需要"强平行趋势"（Callaway et al., 2024）</td><td>§4.2、§4.6</td></tr>
+  <tr><td>P3</td><td>重叠性分级阈值随意</td><td>2% / 0.5% 没有依据，也没有和样本量挂钩</td><td>§4.5</td></tr>
+  <tr><td>P4</td><td>增益矩阵没有推断</td><td>曲线有 95% CI，但增益（两点之差 × 人数）没有</td><td>§4.4</td></tr>
+</table></div>
+
+<h2 id="s4"><span class="n">4</span>方法</h2>
+
+<h3>4.1 设定与估计目标</h3>
+<p>个体 i 的协变量 X<sub>i</sub> 只取 pre 期，D<sub>i</sub> 为 treatment 期平均妥投天数，ΔY<sub>i</sub> = Y<sub>i,post</sub> − Y<sub>i,pre</sub>，潜在结果记为 ΔY<sub>i</sub>(d)。</p>
+<div class="formula">剂量响应    μ(d)      = E[ ΔY(d) ]
+剂量对比    θ(d, d′)  = μ(d′) − μ(d)               例：θ(12, 10)
+分组版本    μ_g(d)    = E[ ΔY(d) | G = g ]          g = 价值档（沿用原 4 档）
+日均增益    Gain(d→d′) = |S_d| · θ_{S_d}(d, d′) / 76   S_d = 当前剂量为 d 的人群</div>
+
+<h3>4.2 识别假设</h3>
+<ul>
+  <li><b>A1 条件强平行趋势：</b>ΔY(d) ⫫ D | X，对所有 d 成立。给定 X，不同剂量的用户如果接受同一剂量，GMV 变化趋势相同。没有未处理组时只能比较不同剂量，所以需要这个比普通平行趋势更强的假设，论文里要明确写出，并用 §4.6 检验和做敏感性分析。</li>
+  <li><b>A2 重叠性：</b>对关注的剂量 d，条件密度 π(d | x) 在几乎所有 x 上大于 0。</li>
+  <li><b>A3 无干扰：</b>一个用户的时效不影响其他用户的 GMV。</li>
+  <li><b>A4 无预期：</b>pre 期行为不受未来物流时效影响；X 不包含 treatment 期及之后的变量（由 Gate G1 强制检查）。</li>
+</ul>
+<p>关键混淆变量：pre 期历史平均妥投天数（最强的一个）、收货州、品类结构、商家类型、订单数、客单价、pre 期 GMV、活跃天数、注册时长、退款与投诉记录。</p>
+
+<h3>4.3 GPS 估计</h3>
+<div class="tbl"><table>
+  <tr><th>方法</th><th>做法</th><th>角色</th></tr>
+  <tr><td>M0 正态 GPS</td><td>D | X ~ N(Xβ, σ²)，即原业务做法（Hirano &amp; Imbens, 2004）</td><td><span class="tag t-cut">基线</span></td></tr>
+  <tr><td>M1 异方差 GBM</td><td>先对 D 取对数降低偏度；log D = m(X) + s(X)·ε，m 和 s 各用一个 LightGBM 拟合，ε 的密度用核估计，最后换算回原尺度</td><td><span class="tag t-main">主方法</span></td></tr>
+</table></div>
+<p>只保留 M1，原因是：它直接针对 P1（偏态用对数变换处理，异方差用 s(X) 处理），在 140 万样本上几分钟就能跑完，每个部分都能解释。模型好坏用两个标准判断：交叉验证的对数似然，以及加权后协变量和 D 的相关性是否接近 0。</p>
+
+<h3>4.4 剂量响应估计与推断</h3>
+<div class="tbl"><table>
+  <tr><th>估计量</th><th>做法</th><th>角色</th></tr>
+  <tr><td>E0 Hirano–Imbens 两步法</td><td>ΔY 对 (D, GPS) 做多项式回归，再在每个 d 处对 GPS 取平均</td><td><span class="tag t-cut">基线</span></td></tr>
+  <tr><td>E1 双稳健（Kennedy et al., 2017）</td><td>拟合结果模型 m(x, d) 和 GPS，构造伪结果，再用局部线性核回归得到 μ̂(d)；5 折交叉拟合</td><td><span class="tag t-main">主方法</span></td></tr>
+</table></div>
+<div class="formula">ξ_i = (ΔY_i − m̂(X_i, D_i)) · ϖ̂(D_i) / π̂(D_i | X_i)  +  (1/n) Σ_j m̂(X_j, D_i)
+ϖ̂(d) = (1/n) Σ_j π̂(d | X_j)
+μ̂(d) = 局部线性回归 ξ ~ D 在 d 处的拟合值</div>
+<p>双稳健的意思是：结果模型和 GPS 只要有一个估计准确，μ̂(d) 就是一致的。分组曲线 μ̂<sub>g</sub>(d) 只需要在每个价值档内对伪结果做同样的回归。</p>
+<ul>
+  <li><b>置信区间：</b>乘子 bootstrap（B = 1000），同时给出点态 CI 和一致置信带。</li>
+  <li><b>增益 CI：</b>θ(d, d′) 和 Gain(d→d′) 用同一组 bootstrap 抽样计算，保留两点之间的相关性。</li>
+  <li><b>拐点：</b>对 μ̂(d) 做两段线性拟合，在每次 bootstrap 中重估拐点位置，得到拐点的 CI，用来检验"10 天"这个结论。</li>
+</ul>
+
+<h3>4.5 重叠性诊断</h3>
+<p>把 2% / 0.5% 的密度阈值换成每个剂量点的有效样本量 ESS(d) = (Σw)² / Σw²，其中 w 是该点核回归的权重。ESS 直接反映"这个点的估计用了多少有效数据"，和方差挂钩。增益矩阵中每个格子按起点和终点 ESS 的较小值分为 <span class="tag t-ok">可信</span> <span class="tag t-gate">谨慎</span> <span class="tag t-cut">外推</span> 三级，具体阈值通过半合成实验中 CI 覆盖率开始失效的位置来确定，而不是拍定。</p>
+
+<h3>4.6 Placebo 检验与敏感性</h3>
+<ul>
+  <li><b>Placebo：</b>把 pre 期切成 pre1（02-14 ~ 03-31）和 pre2（04-01 ~ 04-30），只用 pre1 的协变量，估计 5 月剂量 D 对 Y<sub>pre2</sub> − Y<sub>pre1</sub> 的"效应"。如果 A1 成立，这条曲线应该在 0 附近。</li>
+  <li><b>敏感性：</b>参考 Rambachan &amp; Roth (2023)，假设 post 期的趋势偏离不超过 placebo 偏离的 M 倍，报告 θ 的取值区间，以及结论翻转所需的最小 M（breakdown M）。M 越大，结论越稳。</li>
+</ul>
+
+<h2 id="s5"><span class="n">5</span>系统设计</h2>
+<p>三条原则：</p>
+<ol class="list">
+  <li><b>数字只来自引擎。</b>LLM 不做计算，报告里的数字由模板从引擎输出的 JSON 填入，发布前逐个比对。</li>
+  <li><b>假设不过不出结论。</b>每一步都有可执行的 Gate，不通过就阻断或降级。</li>
+  <li><b>口径来自语义层。</b>变量的定义、数据表和时间属性从指标库 YAML 读取（沿用实习期间搭的指标库格式），每个变量都带 <code>period: pre|treatment|post</code> 字段，G1 据此检查时序。</li>
+</ol>
+
+<div class="flow"><pre class="mermaid">
+flowchart TD
+    Q["用户提问<br/>妥投天数如何影响 GMV？"] --> O["LLM 编排器<br/>规划 · 调用工具 · 解释"]
+    O --> S["语义层<br/>指标库 YAML"]
+    S --> B["构建分析表<br/>X: pre · D: treatment · ΔY"]
+    B --> G1{"G1 时序<br/>X 都在 pre 期？"}
+    G1 -- 否 --> B
+    G1 -- 是 --> GPS["估计 GPS<br/>log + 异方差 GBM"]
+    GPS --> G2{"G2 平衡<br/>加权后 |corr| &lt; 0.1？"}
+    G2 -- 否 --> GPS
+    G2 -- 是 --> DR["双稳健剂量响应<br/>交叉拟合 + bootstrap"]
+    DR --> G3["G3 重叠<br/>ESS 分级"]
+    G3 --> G4{"G4 Placebo<br/>pre 期无效应？"}
+    G4 -- 是 --> OUT["结果<br/>曲线 · 拐点 · 增益 + CI"]
+    G4 -- 否 --> SEN["敏感性分析<br/>只报区间"]
+    SEN --> OUT
+    OUT --> G5{"G5 数字核对<br/>报告与引擎一致？"}
+    G5 -- 否 --> O
+    G5 -- 是 --> R["分析报告"]
+    classDef gate fill:#fbf0de,stroke:#a5620a,color:#1b2230;
+    classDef llm fill:#e3eef6,stroke:#1f5f8b,color:#1b2230;
+    classDef out fill:#e2f2e8,stroke:#2d7a4f,color:#1b2230;
+    class G1,G2,G3,G4,G5,SEN gate;
+    class O llm;
+    class OUT,R out;
+</pre></div>
+<div class="legend"><span><span class="tag t-main">蓝</span> LLM 环节</span><span><span class="tag t-gate">橙</span> 假设把关 Gate</span><span><span class="tag t-ok">绿</span> 输出</span></div>
+
+<h3>5.1 工具（供 LLM 调用，共 6 个）</h3>
+<div class="tbl"><table>
+  <tr><th>工具</th><th>作用</th><th>Gate</th></tr>
+  <tr><td><code>lookup_metric</code></td><td>按关键词查指标定义、数据表和时间属性</td><td>—</td></tr>
+  <tr><td><code>build_dataset</code></td><td>按选定变量和窗口生成分析表，返回数据概况</td><td>G1</td></tr>
+  <tr><td><code>fit_gps</code></td><td>估计 GPS，返回拟合度和加权平衡表</td><td>G2</td></tr>
+  <tr><td><code>estimate_dose_response</code></td><td>双稳健估计 μ(d)、分组曲线、拐点、增益矩阵及 CI 和 ESS 分级</td><td>G3</td></tr>
+  <tr><td><code>run_placebo</code></td><td>placebo 检验；不通过时自动给出敏感性区间</td><td>G4</td></tr>
+  <tr><td><code>render_report</code></td><td>模板生成报告并核对每个数字</td><td>G5</td></tr>
+</table></div>
+
+<h3>5.2 Gate 规则</h3>
+<div class="tbl"><table>
+  <tr><th>Gate</th><th>判定</th><th>不通过时</th></tr>
+  <tr><td>G1 时序</td><td>所有 X 的 <code>period</code> 都是 pre</td><td><span class="tag t-cut">阻断</span> 要求换变量</td></tr>
+  <tr><td>G2 平衡</td><td>加权后每个 X 与 D 的 |corr| &lt; 0.1</td><td>调参重估一次，仍不过则 <span class="tag t-gate">降级</span></td></tr>
+  <tr><td>G3 重叠</td><td>ESS 分级（阈值由实验校准）</td><td>"外推"格子不进入结论</td></tr>
+  <tr><td>G4 Placebo</td><td>placebo 一致置信带覆盖 0</td><td><span class="tag t-gate">降级</span> 只报敏感性区间</td></tr>
+  <tr><td>G5 数字核对</td><td>报告中每个数字都能在引擎输出里找到</td><td><span class="tag t-cut">阻断</span> 退回重写</td></tr>
+</table></div>
+<p>LLM 用 Claude（Anthropic API 的 tool use）。消融实验只做两项：去掉 Gate、去掉语义层。</p>
+
+<h2 id="s6"><span class="n">6</span>数据</h2>
+<div class="cols">
+  <div class="box"><h4>D1 半合成数据 <span class="tag t-main">主评测</span></h4><p>真实分布的协变量，人为设定剂量生成方式和真实剂量响应，所以有真值。用于 RQ1 和 RQ2。</p></div>
+  <div class="box"><h4>D2 Olist 公开数据 <span class="tag t-ok">可复现实证</span></h4><p>巴西电商数据，含下单、发货、妥投时间。客户复购率很低，所以改用卖家面板：剂量为卖家某月平均妥投天数，结果为前后各 3 个月的销售额变化。可用卖家数需先核实。</p></div>
+  <div class="box"><h4>D3 内部数据 <span class="tag t-gate">需审批</span></h4><p>美国跨境线原始分析。只有拿到公司书面同意后才使用，脱敏且只报告相对值；原始数据不进仓库。没批下来就整节删掉，不影响主线。</p></div>
+</div>
+<h3>半合成数据生成方式</h3>
+<div class="formula">X   ~ 对公开数据的协变量重抽样
+D   = exp( m(X) + s(X)·ε ),  ε ~ 0.8·N(0,1) + 0.2·t₃        右偏、重尾、异方差
+μ(d) = −a · max(0, d − 10)^1.5 − b · d                       拐点在 10 天
+ΔY  = μ(D) · h(G) + g(X) + τ·U + 噪声                         h：价值档异质性；U：可调的趋势违背
+场景：混淆强度 × 重叠程度 × τ × n ∈ {10⁴, 10⁵, 10⁶}，每个场景重复 200 次</div>
+<h3>埋入的错误（评测 Agent 用）</h3>
+<ol class="list">
+  <li>候选变量里混入 post 期订单数等干预后变量，应被 G1 拦截。</li>
+  <li>18 天以上几乎没有样本，应被 G3 标为外推。</li>
+  <li>τ &gt; 0 时存在趋势违背，应被 G4 发现。</li>
+  <li>报告里复述大量数字，检验 G5 能否抓出幻觉数字。</li>
+</ol>
+
+<h2 id="s7"><span class="n">7</span>实验</h2>
+<div class="tbl"><table>
+  <tr><th>实验</th><th>对比</th><th>指标</th><th>回答</th></tr>
+  <tr><td>E1 估计量</td><td>GPS（M0 / M1）× 估计量（E0 / E1），共 4 组</td><td>μ(d) 积分 RMSE、偏误、CI 覆盖率、CI 宽度、拐点误差</td><td>RQ1</td></tr>
+  <tr><td>E2 Agent</td><td>LLM 直接写代码 / Agent 去掉 Gate / Agent 去掉语义层 / 完整 Agent</td><td>估计误差、错误拦截率、误拦率、数字幻觉率、完成率</td><td>RQ2</td></tr>
+  <tr><td>E3 实证</td><td>原业务结果 vs 新方法（D2，若有则加 D3）</td><td>剂量曲线、拐点 CI、增益 CI、placebo 与敏感性结果</td><td>RQ3</td></tr>
+</table></div>
+<p>E2 中每个任务独立运行 5 次，报告均值和标准差。</p>
+
+<h2 id="s8"><span class="n">8</span>时间表</h2>
+<div class="tbl"><table>
+  <tr><th>周</th><th>任务</th><th>产出</th></tr>
+  <tr><td class="num">1–2</td><td>文献阅读，定稿识别假设与记号</td><td>相关工作笔记</td></tr>
+  <tr><td class="num">3–5</td><td>估计引擎：M0/M1、E0/E1、bootstrap、ESS；先用 M0+E0 复现原分析流程</td><td><code>gpsdid</code> v0.1 + 单元测试</td></tr>
+  <tr><td class="num">6–7</td><td>半合成数据与 E1 实验；用覆盖率结果校准 ESS 阈值</td><td>论文图 1–3</td></tr>
+  <tr><td class="num">8–10</td><td>Agent：语义层、6 个工具、5 道 Gate、报告模板</td><td><code>agent</code> v0.1 端到端跑通</td></tr>
+  <tr><td class="num">11–12</td><td>埋错基准与 E2 实验</td><td>Agent 评测表</td></tr>
+  <tr><td class="num">13</td><td>Olist 卖家面板实证（E3）；内部数据视审批情况</td><td>实证图表</td></tr>
+  <tr><td class="num">14–16</td><td>写作、内部审阅、开源整理</td><td>投稿稿件</td></tr>
+</table></div>
+<p>KDD ADS 截稿时间通常在每年 2 月前后，以官网为准；赶不上就改投 CIKM Applied Research。</p>
+
+<h2 id="s9"><span class="n">9</span>风险</h2>
+<div class="tbl"><table>
+  <tr><th>风险</th><th>应对</th></tr>
+  <tr><td>内部数据不能用</td><td>主线只依赖 D1 和 D2，D3 是加分项</td></tr>
+  <tr><td>Olist 卖家样本太少</td><td>第 3 周先核实；不够就换用其他带物流时间的公开电商数据</td></tr>
+  <tr><td>强平行趋势无法直接验证</td><td>placebo + 敏感性区间 + breakdown M，如实报告</td></tr>
+  <tr><td>审稿人认为方法只是现有方法的组合</td><td>把重点放在 Gate 设计和埋错基准上，方法部分定位为"把业务做法做严谨"</td></tr>
+  <tr><td>LLM 输出不稳定</td><td>固定温度，多次运行报方差；数字只来自引擎</td></tr>
+</table></div>
+
+<h2 id="s10"><span class="n">10</span>相对 v0.1 删掉的内容</h2>
+<div class="tbl"><table>
+  <tr><th>删掉</th><th>原因</th></tr>
+  <tr><td>混合密度网络、正态化流、CBGPS</td><td>M1 已经处理了偏态和异方差；再加三种模型只会稀释主线，也难以在 140 万样本上调好</td></tr>
+  <tr><td>IPW 核估计、DML 连续处理</td><td>和双稳健估计重复，作为对照对结论没有增量</td></tr>
+  <tr><td>因果森林异质性</td><td>业务上要的就是 4 个价值档，分组回归已经够用</td></tr>
+  <tr><td>cuOpt / 整数规划决策层</td><td>缺可靠的成本数据，加进来属于为用而用；放到未来工作</td></tr>
+  <tr><td>人工分析师对照实验</td><td>招募成本高、样本小、难以复现；用"LLM 直接写代码"作为对照即可</td></tr>
+  <tr><td>开源模型对比</td><td>不是本文要回答的问题</td></tr>
+  <tr><td>未观测混淆的 E-value 等额外敏感性分析</td><td>placebo + 趋势敏感性已覆盖本设计的主要风险</td></tr>
+  <tr><td>G2 拟合度 Gate（合并进平衡 Gate）、工具从 12 个减到 6 个</td><td>功能重叠，合并后流程更清楚</td></tr>
+</table></div>
+
+<h2 id="s11">参考文献</h2>
+<ol class="list refs">
+  <li>Hirano, K., &amp; Imbens, G. W. (2004). The propensity score with continuous treatments. In <i>Applied Bayesian Modeling and Causal Inference from Incomplete-Data Perspectives</i>. Wiley.</li>
+  <li>Kennedy, E. H., Ma, Z., McHugh, M. D., &amp; Small, D. S. (2017). Non-parametric methods for doubly robust estimation of continuous treatment effects. <i>JRSS-B</i>, 79(4).</li>
+  <li>Callaway, B., Goodman-Bacon, A., &amp; Sant'Anna, P. H. C. (2024). Difference-in-differences with a continuous treatment. NBER WP 32117.</li>
+  <li>Sant'Anna, P. H. C., &amp; Zhao, J. (2020). Doubly robust difference-in-differences estimators. <i>Journal of Econometrics</i>, 219(1).</li>
+  <li>Chernozhukov, V., et al. (2018). Double/debiased machine learning for treatment and structural parameters. <i>The Econometrics Journal</i>, 21(1).</li>
+  <li>Rambachan, A., &amp; Roth, J. (2023). A more credible approach to parallel trends. <i>Review of Economic Studies</i>, 90(5).</li>
+  <li>Crump, R. K., Hotz, V. J., Imbens, G. W., &amp; Mitnik, O. A. (2009). Dealing with limited overlap in estimation of average treatment effects. <i>Biometrika</i>, 96(1).</li>
+  <li>Kıcıman, E., Ness, R., Sharma, A., &amp; Tan, C. (2023). Causal reasoning and large language models: Opening a new frontier for causality. arXiv:2305.00050.</li>
+  <li>Olist. Brazilian E-Commerce Public Dataset by Olist. Kaggle.</li>
+</ol>
+</main>
+</div>
