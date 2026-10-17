@@ -1,0 +1,152 @@
+"""Dose-response estimators for ΔY = Y_post - Y_pre on a continuous dose D.
+
+E0  hirano_imbens       two-step GPS regression (baseline; the original business method)
+E1  dr_dose_response    doubly robust pseudo-outcome + local linear (Kennedy et al., 2017),
+                        with cross-fitting
+"""
+from dataclasses import dataclass, field
+
+import numpy as np
+from lightgbm import LGBMRegressor
+from sklearn.model_selection import KFold
+
+from .gps import HeteroGBMGPS, NormalGPS
+from .inference import (local_linear, local_linear_multiplier_bootstrap,
+                        local_linear_weights, select_bandwidth, sup_t_band)
+
+
+@dataclass
+class DoseResponse:
+    grid: np.ndarray
+    mu: np.ndarray            # point estimate of mu(d) on grid
+    draws: np.ndarray         # bootstrap draws, shape (B, G)
+    method: str
+    D: np.ndarray = field(repr=False)
+    weights: np.ndarray = field(repr=False, default=None)   # unclipped varpi(D)/pi(D|X), for balance
+    h: float = None
+    ess: np.ndarray = None    # effective sample size at each grid point
+    xi: np.ndarray = field(repr=False, default=None)        # DR pseudo-outcomes
+
+    def ci(self, alpha=0.05):
+        lo, hi = np.quantile(self.draws, [alpha / 2, 1 - alpha / 2], axis=0)
+        return lo, hi
+
+    def band(self, alpha=0.05):
+        return sup_t_band(self.mu, self.draws, alpha)
+
+    def at(self, d, draws=False):
+        """mu at arbitrary doses by linear interpolation of the grid (point or draws)."""
+        d = np.atleast_1d(np.asarray(d, float))
+        if not draws:
+            return np.interp(d, self.grid, self.mu)
+        return np.stack([np.interp(d, self.grid, row) for row in self.draws])
+
+    def contrast(self, d0):
+        """theta(d0, d) = mu(d) - mu(d0) on the grid: (point, draws)."""
+        p = self.mu - self.at(d0)[0]
+        dr = self.draws - self.at(d0, draws=True)[:, :1]
+        return p, dr
+
+
+def default_outcome_model(seed=0):
+    return LGBMRegressor(n_estimators=300, learning_rate=0.05, num_leaves=31,
+                         min_child_samples=50, random_state=seed, verbose=-1)
+
+
+def _ess(D, grid, h, w):
+    """ESS of the effective weights a_i(d) = l_i(d) * w_i that multiply ΔY at dose d."""
+    A = local_linear_weights(D, grid, h) * w[:, None]
+    return A.sum(0) ** 2 / (A * A).sum(0)
+
+
+def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_model,
+                     n_folds=5, h=None, n_boot=500, weight_clip=0.999, n_mc=1000,
+                     n_dose_grid=150, seed=0):
+    """Cross-fitted doubly robust dose-response curve.
+
+    Pseudo-outcome (Kennedy et al., 2017):
+        xi_i = (ΔY_i - m(X_i, D_i)) * varpi(D_i) / pi(D_i | X_i) + mean_j m(X_j, D_i)
+        varpi(d) = mean_j pi(d | X_j)
+    mu(d) is the local linear regression of xi on D. The two marginal integrals are
+    computed on a dose grid from a Monte Carlo subsample of n_mc units per fold and
+    interpolated. Weights above the `weight_clip` quantile are capped inside xi only;
+    the returned `weights` are unclipped, since capping itself breaks balance.
+
+    `gps` and `outcome` are factories (called with no args / with seed) so each fold
+    gets fresh models.
+    """
+    X = np.asarray(X, float)
+    D = np.asarray(D, float)
+    dY = np.asarray(dY, float)
+    n = len(D)
+    rng = np.random.default_rng(seed)
+    dgrid = np.linspace(*np.quantile(D, [0.001, 0.999]), n_dose_grid)
+    resid = np.empty(n)
+    ratio = np.empty(n)
+    mbar = np.empty(n)
+    for k, (tr, te) in enumerate(KFold(n_folds, shuffle=True, random_state=seed).split(X)):
+        g = gps().fit(X[tr], D[tr])
+        om = outcome(seed + k).fit(np.column_stack([X[tr], D[tr]]), dY[tr])
+        pi = g.density_from_params(g.params(X[te]), D[te])
+        mc = rng.choice(te, min(n_mc, len(te)), replace=False)
+        P_mc = g.params(X[mc])
+        varpi = g.density_from_params(P_mc[:, None, :], dgrid[None, :]).mean(0)
+        Xg = np.column_stack([np.repeat(X[mc], len(dgrid), 0), np.tile(dgrid, len(mc))])
+        mbar_grid = om.predict(Xg).reshape(len(mc), len(dgrid)).mean(0)
+        resid[te] = dY[te] - om.predict(np.column_stack([X[te], D[te]]))
+        ratio[te] = np.interp(D[te], dgrid, varpi) / np.maximum(pi, 1e-12)
+        mbar[te] = np.interp(D[te], dgrid, mbar_grid)
+    w_used = np.minimum(ratio, np.quantile(ratio, weight_clip))
+    xi = resid * w_used + mbar
+    if h is None:
+        h = select_bandwidth(D, xi, seed=seed)
+    mu = local_linear(D, xi, grid, h)
+    draws = local_linear_multiplier_bootstrap(D, xi, grid, h, n_boot=n_boot, seed=seed)
+    return DoseResponse(grid=np.asarray(grid, float), mu=mu, draws=draws,
+                        method=f"DR[{gps.__name__ if hasattr(gps, '__name__') else 'gps'}]",
+                        D=D, weights=ratio, h=h, ess=_ess(D, grid, h, w_used), xi=xi)
+
+
+def _hi_design(d, r):
+    return np.stack([np.ones_like(d), d, d * d, r, r * r, d * r], axis=-1)
+
+
+def hirano_imbens(X, D, dY, grid, gps=NormalGPS, n_boot=500, n_mc=2000, seed=0):
+    """E0: Hirano & Imbens (2004) two-step estimator.
+
+    1) R_i = pi(D_i | X_i);  2) ΔY ~ [1, D, D², R, R², D·R] by OLS;
+    3) mu(d) = mean_j beta' [1, d, d², r_j(d), r_j(d)², d·r_j(d)].
+    The bootstrap reweights step 2 with Exp(1) multipliers, holding the GPS fixed.
+    """
+    X = np.asarray(X, float)
+    D = np.asarray(D, float)
+    dY = np.asarray(dY, float)
+    grid = np.asarray(grid, float)
+    rng = np.random.default_rng(seed)
+    g = gps().fit(X, D)
+    P = g.params(X)
+    R = g.density_from_params(P, D)
+    Z = _hi_design(D, R)
+    beta = np.linalg.lstsq(Z, dY, rcond=None)[0]
+    mc = rng.choice(len(D), min(n_mc, len(D)), replace=False)
+    Rg = g.density_from_params(P[mc][:, None, :], grid[None, :])          # (M, G)
+    Zg = _hi_design(np.broadcast_to(grid, Rg.shape), Rg).mean(0)          # (G, 6)
+    mu = Zg @ beta
+    draws = np.empty((n_boot, len(grid)))
+    for b in range(n_boot):
+        v = rng.exponential(1.0, len(D))
+        Zv = Z * v[:, None]
+        draws[b] = Zg @ np.linalg.solve(Zv.T @ Z, Zv.T @ dY)
+    f_d = np.interp(D, *_marginal_density(D))
+    weights = f_d / np.maximum(R, 1e-12)
+    return DoseResponse(grid=grid, mu=mu, draws=draws, method=f"HI[{gps.__name__}]",
+                        D=D, weights=weights)
+
+
+def _marginal_density(D, n_grid=512):
+    sd = min(D.std(), np.subtract(*np.percentile(D, [75, 25])) / 1.34)
+    bw = 0.9 * sd * len(D) ** -0.2
+    xs = np.linspace(D.min(), D.max(), n_grid)
+    sub = D if len(D) <= 20000 else np.random.default_rng(0).choice(D, 20000, replace=False)
+    dens = np.exp(-0.5 * ((xs[:, None] - sub[None, :]) / bw) ** 2).sum(1)
+    return xs, dens / np.trapezoid(dens, xs)
