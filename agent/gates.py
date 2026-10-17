@@ -30,7 +30,7 @@ def g1_timing(covariates, semantic):
 
 def g2_balance(table, threshold=0.1):
     worst = table.loc[table.corr_weighted.abs().idxmax()]
-    msg = (f"加权后最大 |corr(X, D)| = {abs(worst.corr_weighted):.3f}（{worst.covariate}），"
+    msg = (f"加权后 X 与 D 的最大绝对相关为 {abs(worst.corr_weighted):.3f}（{worst.covariate}），"
            f"加权前为 {abs(table.corr_raw).max():.3f}，阈值 {threshold}")
     return GateResult("G2 平衡", "pass" if balance_ok(table, threshold) else "degrade", msg)
 
@@ -40,7 +40,7 @@ def g3_overlap(grid, grades):
     if len(ext) == 0:
         return GateResult("G3 重叠", "pass", "所有剂量点的有效样本量都足够")
     return GateResult("G3 重叠", "degrade",
-                      f"{len(ext)} 个剂量点（{ext.min():g}–{ext.max():g} 天范围内）有效样本量不足，"
+                      f"{len(ext)} 个剂量点有效样本量不足（{', '.join(f'{d:g}' for d in ext)} 天），"
                       "这些点只作外推参考，不进入结论")
 
 

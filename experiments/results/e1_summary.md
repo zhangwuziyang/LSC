@@ -1,0 +1,14 @@
+# E1 summary (n=20000, reps=30)
+
+Target: theta(10, d) on d in [6, 16]. coverage = mean pointwise 95% CI coverage; band_covers = share of reps whose 95% uniform band covers the whole true curve; kink_err = |estimated kink - 10| in days.
+
+|                                     |   rmse |   abs_bias |   coverage |   band_covers |   ci_width |   kink_err |   seconds |
+|:------------------------------------|-------:|-----------:|-----------:|--------------:|-----------:|-----------:|----------:|
+| ('heavy_tail', 'E0+M0 (original)')  |  0.163 |      0.123 |      0.142 |         0     |      0.054 |      0.283 |     1.539 |
+| ('heavy_tail', 'E0+M1')             |  0.288 |      0.227 |      0     |         0     |      0.053 |      0.192 |     2.994 |
+| ('heavy_tail', 'E1+M0')             |  0.086 |      0.074 |      0.852 |         1     |      0.318 |      1.883 |    11.18  |
+| ('heavy_tail', 'E1+M1 (proposed)')  |  0.069 |      0.053 |      0.835 |         0.9   |      0.237 |      2.3   |    17.457 |
+| ('normal_tail', 'E0+M0 (original)') |  0.174 |      0.131 |      0.118 |         0     |      0.057 |      0.3   |     1.604 |
+| ('normal_tail', 'E0+M1')            |  0.295 |      0.228 |      0.002 |         0     |      0.056 |      0.217 |     2.832 |
+| ('normal_tail', 'E1+M0')            |  0.082 |      0.069 |      0.88  |         0.933 |      0.309 |      1.283 |    11.125 |
+| ('normal_tail', 'E1+M1 (proposed)') |  0.059 |      0.047 |      0.887 |         0.9   |      0.208 |      1.317 |    16.146 |
