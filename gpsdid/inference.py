@@ -68,8 +68,10 @@ def select_bandwidth(x, y, n_candidates=12, max_n=3000, seed=0):
         if not np.all(np.isfinite(lev)) or lev.max() > 0.99:
             continue
         cv = np.mean(((ys - fit) / (1 - lev)) ** 2)
-        if cv < best_cv:
+        if np.isfinite(cv) and cv < best_cv:
             best_h, best_cv = h, cv
+    if best_h is None:  # no candidate gave a finite CV score: fall back to the rule of thumb
+        best_h = base
     return best_h * (m / n) ** 0.2
 
 

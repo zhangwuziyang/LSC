@@ -60,8 +60,8 @@ def _ess(D, grid, h, w):
 
 
 def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_model,
-                     n_folds=5, h=None, n_boot=500, weight_clip=0.999, n_mc=1000,
-                     n_dose_grid=150, seed=0):
+                     n_folds=5, h=None, undersmooth=0.5, n_boot=500, weight_clip=0.999,
+                     n_mc=1000, n_dose_grid=150, seed=0):
     """Cross-fitted doubly robust dose-response curve.
 
     Pseudo-outcome (Kennedy et al., 2017):
@@ -71,6 +71,10 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     computed on a dose grid from a Monte Carlo subsample of n_mc units per fold and
     interpolated. Weights above the `weight_clip` quantile are capped inside xi only;
     the returned `weights` are unclipped, since capping itself breaks balance.
+
+    Without an explicit `h`, the bandwidth is `undersmooth` x the CV-optimal one. CV picks
+    a bandwidth that is MSE-optimal for the curve, and its smoothing bias (largest at the
+    kink) makes bootstrap intervals undercover; undersmoothing trades width for coverage.
 
     `gps` and `outcome` are factories (called with no args / with seed) so each fold
     gets fresh models.
@@ -99,7 +103,7 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     w_used = np.minimum(ratio, np.quantile(ratio, weight_clip))
     xi = resid * w_used + mbar
     if h is None:
-        h = select_bandwidth(D, xi, seed=seed)
+        h = undersmooth * select_bandwidth(D, xi, seed=seed)
     mu = local_linear(D, xi, grid, h)
     draws = local_linear_multiplier_bootstrap(D, xi, grid, h, n_boot=n_boot, seed=seed)
     return DoseResponse(grid=np.asarray(grid, float), mu=mu, draws=draws,
