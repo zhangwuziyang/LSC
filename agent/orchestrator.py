@@ -1,4 +1,5 @@
-"""LLM orchestrator: Claude plans the analysis and calls the session steps as tools.
+"""LLM orchestrator: the model plans the analysis and calls the session steps as tools.
+Claude (Anthropic API) is the default; DeepSeek runs through its OpenAI-compatible API.
 
 The model never computes anything. Every number in the final report is produced by the
 engine and checked by Gate G5; a gate that blocks is reported back as the tool result,
@@ -86,16 +87,29 @@ def _execute(session, name, args):
         return {"error": f"{type(e).__name__}: {e}"}, True
 
 
-def run_agent(df, question, client=None, session_kw=None, max_turns=25, effort="high"):
+def _call_tool(session, run, turn, name, args):
+    out, is_error = _execute(session, name, args)
+    run.trace.append({"turn": turn, "tool": name, "input": args, "is_error": is_error,
+                      "gate": out.get("gate") if isinstance(out, dict) else None})
+    return json.dumps(out, ensure_ascii=False), is_error
+
+
+def run_agent(df, question, client=None, session_kw=None, max_turns=25, effort="high",
+              provider="anthropic", model=None):
+    """provider: "anthropic" (Claude, default) or "deepseek" (OpenAI-compatible API)."""
+    session = AnalysisSession(df, **(session_kw or {}))
+    run = AgentRun(final_text="", session=session)
+    if provider == "deepseek":
+        return _loop_deepseek(run, question, client, max_turns, model or DEEPSEEK_MODEL)
+    if provider != "anthropic":
+        raise ValueError(f"unknown provider {provider}")
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
-    session = AnalysisSession(df, **(session_kw or {}))
     messages = [{"role": "user", "content": question}]
-    run = AgentRun(final_text="", session=session)
     for turn in range(max_turns):
         response = client.beta.messages.create(
-            model=MODEL,
+            model=model or MODEL,
             max_tokens=16000,
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
@@ -118,11 +132,58 @@ def run_agent(df, question, client=None, session_kw=None, max_turns=25, effort="
         for block in response.content:
             if block.type != "tool_use":
                 continue
-            out, is_error = _execute(session, block.name, dict(block.input))
-            run.trace.append({"turn": turn, "tool": block.name, "input": dict(block.input),
-                              "is_error": is_error,
-                              "gate": out.get("gate") if isinstance(out, dict) else None})
+            content, is_error = _call_tool(session, run, turn, block.name, dict(block.input))
             results.append({"type": "tool_result", "tool_use_id": block.id,
-                            "content": json.dumps(out, ensure_ascii=False), "is_error": is_error})
+                            "content": content, "is_error": is_error})
         messages.append({"role": "user", "content": results})
+    return run
+
+
+# ---- DeepSeek (OpenAI-compatible chat completions with function calling) ---------------
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "deepseek-chat"
+OPENAI_TOOLS = [{"type": "function",
+                 "function": {"name": t["name"], "description": t["description"],
+                              "parameters": t["input_schema"]}} for t in TOOLS]
+
+
+def _loop_deepseek(run, question, client, max_turns, model):
+    if client is None:
+        import os
+
+        import openai
+        client = openai.OpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url=DEEPSEEK_BASE_URL)
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question}]
+    for turn in range(max_turns):
+        response = client.chat.completions.create(model=model, messages=messages, tools=OPENAI_TOOLS,
+                                                  max_tokens=8000)
+        choice = response.choices[0]
+        msg = choice.message
+        run.turns = turn + 1
+        run.stop_reason = choice.finish_reason
+        usage = getattr(response, "usage", None)
+        run.usage["input_tokens"] += getattr(usage, "prompt_tokens", 0) or 0
+        run.usage["output_tokens"] += getattr(usage, "completion_tokens", 0) or 0
+        calls = msg.tool_calls or []
+        if not calls:
+            run.final_text = msg.content or ""
+            break
+        assistant = {"role": "assistant", "content": msg.content or "",
+                     "tool_calls": [{"id": c.id, "type": "function",
+                                     "function": {"name": c.function.name, "arguments": c.function.arguments}}
+                                    for c in calls]}
+        # Thinking-mode models return reasoning_content; it is passed back within a tool-use turn.
+        if getattr(msg, "reasoning_content", None):
+            assistant["reasoning_content"] = msg.reasoning_content
+        messages.append(assistant)
+        for c in calls:
+            try:
+                args = json.loads(c.function.arguments or "{}")
+            except json.JSONDecodeError:
+                content = json.dumps({"error": "tool arguments were not valid JSON"})
+                run.trace.append({"turn": turn, "tool": c.function.name, "input": c.function.arguments,
+                                  "is_error": True, "gate": None})
+            else:
+                content, _ = _call_tool(run.session, run, turn, c.function.name, args)
+            messages.append({"role": "tool", "tool_call_id": c.id, "content": content})
     return run

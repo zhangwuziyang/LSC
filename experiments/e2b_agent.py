@@ -1,10 +1,12 @@
 """E2b: the agent on the trap benchmark, full system vs ablations.
 
-Needs Anthropic API credentials (ANTHROPIC_API_KEY or an `ant auth login` profile).
+Needs API credentials: ANTHROPIC_API_KEY for Claude (default), or DEEPSEEK_API_KEY with
+--provider deepseek (the network policy must allow api.deepseek.com).
 Each run costs real tokens; start with --reps 1 --tasks clean to check the setup.
 
     python experiments/e2b_agent.py --reps 3
     python experiments/e2b_agent.py --conditions full no_gates --tasks post_treatment --reps 1
+    python experiments/e2b_agent.py --provider deepseek --tasks clean --reps 1
 """
 import argparse
 import json
@@ -29,9 +31,11 @@ def main():
     ap.add_argument("--tasks", nargs="+", default=None)
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--n", type=int, default=20000)
-    ap.add_argument("--effort", default="high")
+    ap.add_argument("--effort", default="high", help="Claude only")
+    ap.add_argument("--provider", choices=["anthropic", "deepseek"], default="anthropic")
+    ap.add_argument("--model", default=None, help="override the provider's default model")
     args = ap.parse_args()
-    out_dir = Path(__file__).parent / "results" / "e2b"
+    out_dir = Path(__file__).parent / "results" / f"e2b_{args.provider}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     tasks = [t for t in make_tasks(args.n) if args.tasks is None or t.id in args.tasks]
@@ -41,9 +45,9 @@ def main():
             for rep in range(args.reps):
                 t0 = time.time()
                 run = run_agent(task.df, task.question, session_kw=dict(seed=rep, **CONDITIONS[cond]),
-                                effort=args.effort)
+                                effort=args.effort, provider=args.provider, model=args.model)
                 checks = task.checks(run)
-                rows.append(dict(condition=cond, task=task.id, rep=rep, passed_all=all(checks.values()),
+                rows.append(dict(provider=args.provider, condition=cond, task=task.id, rep=rep, passed_all=all(checks.values()),
                                  turns=run.turns, tool_calls=len(run.trace), seconds=time.time() - t0,
                                  stop_reason=run.stop_reason, **run.usage, **checks))
                 stem = f"{cond}_{task.id}_{rep}"

@@ -53,3 +53,5 @@ python experiments/e2b_agent.py --reps 3                                   # 完
 ```
 
 默认模型为 `claude-opus-5-5`，开启了服务端拒答回退（`fallbacks="default"`）。
+
+也可以用 DeepSeek（OpenAI 兼容接口，默认模型 `deepseek-chat`）：设置 `DEEPSEEK_API_KEY`，并在环境的网络设置里放行 `api.deepseek.com`，然后加 `--provider deepseek`（可用 `--model` 换模型）。

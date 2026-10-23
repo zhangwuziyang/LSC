@@ -100,3 +100,44 @@ def test_no_gates_ablation_hides_verdicts_but_keeps_them_for_grading():
     assert run.session.gates["G1 时序"].status == "block"            # but the grader knows
     checks = task.checks(run)
     assert not checks["no_post_treatment_covariate"] and not checks["all_numbers_verified"]
+
+
+class FakeOpenAIClient:
+    """OpenAI-style client (DeepSeek) playing back a fixed list of turns."""
+
+    def __init__(self, script):
+        self.script = list(script)
+        self.seen = []
+        self.chat = NS(completions=NS(create=self._create))
+
+    def _create(self, **kw):
+        assert kw["messages"][0]["role"] == "system" and kw["tools"][0]["type"] == "function"
+        tail = [m for m in kw["messages"] if m["role"] == "tool"]
+        self.seen.append([json.loads(m["content"]) for m in tail])
+        step = self.script.pop(0)
+        if isinstance(step, str):
+            msg = NS(content=step, tool_calls=None, reasoning_content=None)
+            return NS(choices=[NS(message=msg, finish_reason="stop")], usage=None)
+        calls = [NS(id=f"c{len(self.seen)}_{i}", type="function",
+                    function=NS(name=n, arguments=a if isinstance(a, str) else json.dumps(a)))
+                 for i, (n, a) in enumerate(step)]
+        msg = NS(content="", tool_calls=calls, reasoning_content="...")
+        return NS(choices=[NS(message=msg, finish_reason="tool_calls")], usage=None)
+
+
+def test_deepseek_loop_runs_the_same_tools():
+    task = {t.id: t for t in make_tasks(3000)}["post_treatment"]
+    script = [
+        [("build_dataset", {"covariates": PRE_COVS + ["post_orders"]})],
+        [("build_dataset", "{not json")],
+        [("build_dataset", {"covariates": PRE_COVS})],
+        [("fit_gps", {}), ("estimate_dose_response", {"from_days": [12], "to_days": [10]})],
+        [("run_placebo", {})],
+        [("render_report", {"narrative": "post_orders 是干预后变量，已删除。"})],
+        "已删除干预后变量 post_orders。",
+    ]
+    client = FakeOpenAIClient(script)
+    run = run_agent(task.df, task.question, client=client, session_kw=FAST, provider="deepseek")
+    assert run.stop_reason == "stop" and not client.script
+    assert run.trace[0]["gate"]["status"] == "block" and run.trace[1]["is_error"]
+    assert all(task.checks(run).values())
