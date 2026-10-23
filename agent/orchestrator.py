@@ -90,8 +90,11 @@ def _execute(session, name, args):
 
 def _call_tool(session, run, turn, name, args):
     out, is_error = _execute(session, name, args)
-    run.trace.append({"turn": turn, "tool": name, "input": args, "is_error": is_error,
-                      "gate": out.get("gate") if isinstance(out, dict) else None})
+    shown = out.get("gate") if isinstance(out, dict) else None
+    true = session.gates.get(shown["gate"]) if shown else None
+    run.trace.append({"turn": turn, "tool": name, "input": args, "is_error": is_error, "gate": shown,
+                      # the real verdict, which differs from `gate` when gates are switched off
+                      "gate_true": true.to_dict() if true is not None else None})
     return json.dumps(out, ensure_ascii=False), is_error
 
 
