@@ -28,7 +28,7 @@ def style(ax):
 
 
 def main():
-    cur = pd.read_csv(RES / "e1_curves.csv")
+    cur = pd.concat([pd.read_csv(f) for f in sorted(RES.glob("e1_curves*.csv"))])
     cur["covered"] = (cur.lo <= cur.truth) & (cur.truth <= cur.hi)
     plt.rcParams.update({"font.size": 9, "axes.titlesize": 10, "axes.labelcolor": INK})
     for scen, df in cur.groupby("scenario", sort=False):

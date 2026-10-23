@@ -51,12 +51,17 @@ def main():
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--n", type=int, default=20000)
     ap.add_argument("--out", default=str(Path(__file__).parent / "results"))
+    ap.add_argument("--scenario", choices=list(SCENARIOS), action="append",
+                    help="run only these scenarios (default: all); results go to e1_*_<scenario> files")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
+    scenarios = args.scenario or list(SCENARIOS)
+    tag = "" if args.scenario is None else "_" + "_".join(scenarios)
     rows, curves = [], []
-    for scen, kw in SCENARIOS.items():
+    for scen in scenarios:
+        kw = SCENARIOS[scen]
         for rep in range(args.reps):
             s = simulate(args.n, seed=rep, **kw)
             truth = s.true_contrast(D0, GRID)
@@ -67,16 +72,16 @@ def main():
                 curves.append(pd.DataFrame(dict(scenario=scen, rep=rep, method=name, d=GRID,
                                                 truth=truth, **cur)))
             print(f"{scen} rep {rep + 1}/{args.reps} done", flush=True)
-            pd.DataFrame(rows).to_csv(out / "e1_metrics.csv", index=False)
-            pd.concat(curves).round(5).to_csv(out / "e1_curves.csv", index=False)
+            pd.DataFrame(rows).to_csv(out / f"e1_metrics{tag}.csv", index=False)
+            pd.concat(curves).round(5).to_csv(out / f"e1_curves{tag}.csv", index=False)
 
     df = pd.DataFrame(rows)
     summary = (df.groupby(["scenario", "method"], sort=False)
                  [["rmse", "abs_bias", "coverage", "band_covers", "ci_width", "kink_err", "kink_covers",
                    "kink_ci_width", "seconds"]]
                  .mean().round(3))
-    summary.to_csv(out / "e1_summary.csv")
-    (out / "e1_summary.md").write_text(
+    summary.to_csv(out / f"e1_summary{tag}.csv")
+    (out / f"e1_summary{tag}.md").write_text(
         f"# E1 summary (n={args.n}, reps={args.reps})\n\n"
         "Target: theta(10, d) on d in [6, 16]. coverage = mean pointwise 95% CI coverage; "
         "band_covers = share of reps whose 95% uniform band covers the whole true curve; "
