@@ -23,6 +23,9 @@
 5. `python experiments/e2c_compare.py` 出对比表，告诉用户哪家效果更好。
 
 ## 未完成的实验
+
+> **更新：E2a 由旧会话继续跑完并推送，新会话不要再跑 E2a**，以免两个会话同时提交同一个结果文件。推送前先 `git pull --rebase`。
+
 - E2a（placebo 检验 G4 的误报率/检出率）：旧会话跑了一部分，结果在 `experiments/results/e2a_placebo_taus0_0.25.csv`。
   需要补跑：`python experiments/e2a_placebo_gate.py --taus 0 0.25 --reps 15`（如已有部分结果可只跑缺的）以及
   `python experiments/e2a_placebo_gate.py --taus 0.5 1 --reps 15`。每次重复约 4 分钟，注意 2 小时上限。
