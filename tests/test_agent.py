@@ -29,3 +29,10 @@ def test_g5_number_check():
     assert g5_numbers("θ = 0.312，CI [-1.50, 0.40]，人数 4700", allowed + [0.4]).status == "pass"
     res = g5_numbers("增益为 3.41 万美元", allowed)
     assert res.status == "block" and "3.41" in res.detail
+
+
+def test_g5_reads_unicode_minus():
+    allowed = [-2.5111, 2.2096, -0.2902]
+    text = "CI −2.5111 至 2.2096，增益 －0.2902"
+    assert g5_numbers(text, allowed).status == "pass"
+    assert g5_numbers("CI −9.99", allowed).status == "block"

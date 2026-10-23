@@ -56,6 +56,8 @@ def g4_placebo(passed, max_dev):
 
 
 _NUM = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?")
+# Models often write minus as U+2212 or the full-width U+FF0D; read both as "-".
+_MINUS = str.maketrans({"\u2212": "-", "\uff0d": "-"})
 
 
 def g5_numbers(text, allowed, rel_tol=0.005):
@@ -63,7 +65,7 @@ def g5_numbers(text, allowed, rel_tol=0.005):
     constant such as dates and thresholds), up to display rounding."""
     allowed = np.asarray(sorted(set(float(a) for a in allowed)))
     unmatched = []
-    for tok in _NUM.findall(text):
+    for tok in _NUM.findall(text.translate(_MINUS)):
         v = float(tok)
         decimals = len(tok.split(".")[1]) if "." in tok else 0
         tol = max(0.5 * 10 ** -decimals, rel_tol * abs(v))
