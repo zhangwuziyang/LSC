@@ -1,0 +1,4 @@
+provider,condition,task,rep,passed_all,turns,tool_calls,seconds,stop_reason,input_tokens,output_tokens,finished_with_report,no_post_treatment_covariate,all_numbers_verified
+deepseek,full,clean,0,True,8,7,272.32628655433655,stop,26878,2654,True,True,True
+deepseek,no_gates,clean,0,True,7,8,296.8943712711334,stop,22660,3874,True,True,True
+deepseek,no_semantic,clean,0,True,10,24,327.0767877101898,stop,46155,7631,True,True,True
