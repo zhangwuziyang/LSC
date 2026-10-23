@@ -82,3 +82,21 @@ def test_pipeline_matches_session_path():
     out = run_analysis(task.df, covariates=PRE_COVS, **FAST)
     assert [g.gate for g in out["gates"]] == ["G1 时序", "G2 平衡", "G3 重叠", "G4 Placebo"]
     assert np.isfinite(out["curve"]["theta"]).all()
+
+
+def test_no_gates_ablation_hides_verdicts_but_keeps_them_for_grading():
+    task = {t.id: t for t in make_tasks(3000)}["post_treatment"]
+    script = [
+        [("build_dataset", {"covariates": PRE_COVS + ["post_orders"]})],
+        [("fit_gps", {})],
+        [("estimate_dose_response", {"from_days": [12], "to_days": [10]})],
+        [("run_placebo", {})],
+        [("render_report", {"narrative": "每天可增加 123.456 美元。"})],
+        "done",
+    ]
+    client = FakeClient(script)
+    run = run_agent(task.df, task.question, client=client, session_kw=dict(gates_enabled=False, **FAST))
+    assert client.seen[0][0]["gate"]["status"] == "pass"             # model is not told about G1
+    assert run.session.gates["G1 时序"].status == "block"            # but the grader knows
+    checks = task.checks(run)
+    assert not checks["no_post_treatment_covariate"] and not checks["all_numbers_verified"]
