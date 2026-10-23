@@ -59,9 +59,29 @@ def _ess(D, grid, h, w):
     return A.sum(0) ** 2 / (A * A).sum(0)
 
 
+def _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed):
+    """One cross-fitting pass: per-unit residual, stabilized weight and mean outcome."""
+    n = len(D)
+    rng = np.random.default_rng(seed)
+    resid, ratio, mbar = np.empty(n), np.empty(n), np.empty(n)
+    for k, (tr, te) in enumerate(KFold(n_folds, shuffle=True, random_state=seed).split(X)):
+        g = gps().fit(X[tr], D[tr])
+        om = outcome(seed + k).fit(np.column_stack([X[tr], D[tr]]), dY[tr])
+        pi = g.density_from_params(g.params(X[te]), D[te])
+        mc = rng.choice(te, min(n_mc, len(te)), replace=False)
+        P_mc = g.params(X[mc])
+        varpi = g.density_from_params(P_mc[:, None, :], dgrid[None, :]).mean(0)
+        Xg = np.column_stack([np.repeat(X[mc], len(dgrid), 0), np.tile(dgrid, len(mc))])
+        mbar_grid = om.predict(Xg).reshape(len(mc), len(dgrid)).mean(0)
+        resid[te] = dY[te] - om.predict(np.column_stack([X[te], D[te]]))
+        ratio[te] = np.interp(D[te], dgrid, varpi) / np.maximum(pi, 1e-12)
+        mbar[te] = np.interp(D[te], dgrid, mbar_grid)
+    return resid, ratio, mbar
+
+
 def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_model,
-                     n_folds=5, h=None, undersmooth=0.5, n_boot=500, weight_clip=0.999,
-                     n_mc=1000, n_dose_grid=150, seed=0):
+                     n_folds=5, n_splits=1, h=None, undersmooth=0.5, n_boot=500,
+                     weight_clip=0.999, n_mc=1000, n_dose_grid=150, seed=0):
     """Cross-fitted doubly robust dose-response curve.
 
     Pseudo-outcome (Kennedy et al., 2017):
@@ -76,37 +96,38 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     a bandwidth that is MSE-optimal for the curve, and its smoothing bias (largest at the
     kink) makes bootstrap intervals undercover; undersmoothing trades width for coverage.
 
+    With n_splits > 1 the cross-fitting is repeated on independent fold splits
+    (Chernozhukov et al., 2018). The point estimate uses the split-averaged xi, and the
+    bootstrap draws of all splits are pooled, so their spread includes the variation
+    across splits as well as the within-split sampling variance. Each split's xi is
+    noisier than the average, so the pooled spread is slightly conservative.
+
     `gps` and `outcome` are factories (called with no args / with seed) so each fold
     gets fresh models.
     """
     X = np.asarray(X, float)
     D = np.asarray(D, float)
     dY = np.asarray(dY, float)
-    n = len(D)
-    rng = np.random.default_rng(seed)
+    grid = np.asarray(grid, float)
     dgrid = np.linspace(*np.quantile(D, [0.001, 0.999]), n_dose_grid)
-    resid = np.empty(n)
-    ratio = np.empty(n)
-    mbar = np.empty(n)
-    for k, (tr, te) in enumerate(KFold(n_folds, shuffle=True, random_state=seed).split(X)):
-        g = gps().fit(X[tr], D[tr])
-        om = outcome(seed + k).fit(np.column_stack([X[tr], D[tr]]), dY[tr])
-        pi = g.density_from_params(g.params(X[te]), D[te])
-        mc = rng.choice(te, min(n_mc, len(te)), replace=False)
-        P_mc = g.params(X[mc])
-        varpi = g.density_from_params(P_mc[:, None, :], dgrid[None, :]).mean(0)
-        Xg = np.column_stack([np.repeat(X[mc], len(dgrid), 0), np.tile(dgrid, len(mc))])
-        mbar_grid = om.predict(Xg).reshape(len(mc), len(dgrid)).mean(0)
-        resid[te] = dY[te] - om.predict(np.column_stack([X[te], D[te]]))
-        ratio[te] = np.interp(D[te], dgrid, varpi) / np.maximum(pi, 1e-12)
-        mbar[te] = np.interp(D[te], dgrid, mbar_grid)
+    xis, ratios = [], []
+    for sp in range(n_splits):
+        resid, ratio, mbar = _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed + 1000 * sp)
+        w_used = np.minimum(ratio, np.quantile(ratio, weight_clip))
+        xis.append(resid * w_used + mbar)
+        ratios.append(ratio)
+    xi = np.mean(xis, 0)
+    ratio = np.mean(ratios, 0)
     w_used = np.minimum(ratio, np.quantile(ratio, weight_clip))
-    xi = resid * w_used + mbar
     if h is None:
         h = undersmooth * select_bandwidth(D, xi, seed=seed)
     mu = local_linear(D, xi, grid, h)
-    draws = local_linear_multiplier_bootstrap(D, xi, grid, h, n_boot=n_boot, seed=seed)
-    return DoseResponse(grid=np.asarray(grid, float), mu=mu, draws=draws,
+    # Each split's draws are centred on that split's own curve, so pooling them carries
+    # the between-split variation.
+    per = max(1, n_boot // n_splits)
+    draws = np.concatenate([local_linear_multiplier_bootstrap(D, x_s, grid, h, n_boot=per, seed=seed + sp)
+                            for sp, x_s in enumerate(xis)])
+    return DoseResponse(grid=grid, mu=mu, draws=draws,
                         method=f"DR[{gps.__name__ if hasattr(gps, '__name__') else 'gps'}]",
                         D=D, weights=ratio, h=h, ess=_ess(D, grid, h, w_used), xi=xi)
 
