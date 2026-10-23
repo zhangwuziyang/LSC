@@ -126,8 +126,21 @@ class FakeOpenAIClient:
         return NS(choices=[NS(message=msg, finish_reason="tool_calls")], usage=None)
 
 
+class FakeAnthropicCompatClient(FakeClient):
+    """A third-party Anthropic-compatible endpoint: plain messages.create, no Claude-only fields."""
+
+    def __init__(self, script):
+        super().__init__(script)
+        self.messages = NS(create=self._create_plain)
+
+    def _create_plain(self, **kw):
+        assert "fallbacks" not in kw and "betas" not in kw
+        assert all("strict" not in t for t in kw["tools"])
+        return self._create(**{**kw, "model": "claude-opus-5-5", "fallbacks": "default"})
+
+
 @pytest.mark.parametrize("provider", ["deepseek", "qwen"])
-def test_openai_compatible_loop_runs_the_same_tools(provider):
+def test_third_party_providers_run_the_same_tools(provider):
     task = {t.id: t for t in make_tasks(3000)}["post_treatment"]
     script = [
         [("build_dataset", {"covariates": PRE_COVS + ["post_orders"]})],
@@ -138,8 +151,18 @@ def test_openai_compatible_loop_runs_the_same_tools(provider):
         [("render_report", {"narrative": "post_orders 是干预后变量，已删除。"})],
         "已删除干预后变量 post_orders。",
     ]
-    client = FakeOpenAIClient(script)
+    if provider == "qwen":  # Anthropic-style: the invalid-JSON turn does not apply
+        script = [st for st in script if st != [("build_dataset", "{not json")]]
+        script = [[(n, a) for n, a in st] if isinstance(st, list) else st for st in script]
+        client = FakeAnthropicCompatClient(script)
+    else:
+        client = FakeOpenAIClient(script)
     run = run_agent(task.df, task.question, client=client, session_kw=FAST, provider=provider)
-    assert run.stop_reason == "stop" and not client.script
+    assert not client.script
+    if provider == "qwen":
+        assert run.stop_reason == "end_turn" and run.trace[0]["gate"]["status"] == "block"
+        assert all(task.checks(run).values())
+        return
+    assert run.stop_reason == "stop"
     assert run.trace[0]["gate"]["status"] == "block" and run.trace[1]["is_error"]
     assert all(task.checks(run).values())

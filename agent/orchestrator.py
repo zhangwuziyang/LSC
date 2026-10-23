@@ -1,6 +1,6 @@
 """LLM orchestrator: the model plans the analysis and calls the session steps as tools.
-Claude (Anthropic API) is the default; DeepSeek and Qwen run through their
-OpenAI-compatible APIs.
+Claude (Anthropic API) is the default; DeepSeek runs through its OpenAI-compatible API
+and Qwen (千问 AI 平台) through its Anthropic-compatible API.
 
 The model never computes anything. Every number in the final report is produced by the
 engine and checked by Gate G5; a gate that blocks is reported back as the tool result,
@@ -97,28 +97,45 @@ def _call_tool(session, run, turn, name, args):
 
 def run_agent(df, question, client=None, session_kw=None, max_turns=25, effort="high",
               provider="anthropic", model=None):
-    """provider: "anthropic" (Claude, default) or one of OPENAI_COMPAT ("deepseek", "qwen")."""
+    """provider: "anthropic" (Claude, default) or a key of PROVIDERS ("deepseek", "qwen")."""
     session = AnalysisSession(df, **(session_kw or {}))
     run = AgentRun(final_text="", session=session)
-    if provider in OPENAI_COMPAT:
-        return _loop_openai_compat(run, question, client, max_turns, provider, model)
-    if provider != "anthropic":
+    if provider == "anthropic":
+        if client is None:
+            import anthropic
+            client = anthropic.Anthropic()
+        return _loop_anthropic(run, question, client, max_turns, model or MODEL, claude=True, effort=effort)
+    if provider not in PROVIDERS:
         raise ValueError(f"unknown provider {provider}")
-    if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+    cfg = provider_config(provider)
+    client = client or make_client(provider)
+    if cfg["style"] == "anthropic":
+        return _loop_anthropic(run, question, client, max_turns, model or cfg["model"], claude=False)
+    return _loop_openai_compat(run, question, client, max_turns, model or cfg["model"])
+
+
+# Third-party Anthropic-compatible endpoints get plain tool definitions and none of the
+# Claude-only request fields (beta headers, server-side fallback, effort).
+PLAIN_TOOLS = [{k: v for k, v in t.items() if k != "strict"} for t in TOOLS]
+
+
+def _loop_anthropic(run, question, client, max_turns, model, claude, effort="high"):
     messages = [{"role": "user", "content": question}]
     for turn in range(max_turns):
-        response = client.beta.messages.create(
-            model=model or MODEL,
-            max_tokens=16000,
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            output_config={"effort": effort},
-            system=SYSTEM,
-            tools=TOOLS,
-            messages=messages,
-        )
+        if claude:
+            response = client.beta.messages.create(
+                model=model,
+                max_tokens=16000,
+                betas=["server-side-fallback-2026-07-01"],
+                fallbacks="default",
+                output_config={"effort": effort},
+                system=SYSTEM,
+                tools=TOOLS,
+                messages=messages,
+            )
+        else:
+            response = client.messages.create(model=model, max_tokens=16000, system=SYSTEM,
+                                              tools=PLAIN_TOOLS, messages=messages)
         run.turns = turn + 1
         run.stop_reason = response.stop_reason
         usage = getattr(response, "usage", None)
@@ -133,22 +150,24 @@ def run_agent(df, question, client=None, session_kw=None, max_turns=25, effort="
         for block in response.content:
             if block.type != "tool_use":
                 continue
-            content, is_error = _call_tool(session, run, turn, block.name, dict(block.input))
+            content, is_error = _call_tool(run.session, run, turn, block.name, dict(block.input))
             results.append({"type": "tool_result", "tool_use_id": block.id,
                             "content": content, "is_error": is_error})
         messages.append({"role": "user", "content": results})
     return run
 
 
-# ---- OpenAI-compatible providers (DeepSeek, Qwen via DashScope) -------------------------
-# Base URL, key and model can be overridden through the environment (see .env.example).
-# Model IDs follow each provider's naming; list what an account can use with
-# `python -m agent.check_providers`.
-OPENAI_COMPAT = {
-    "deepseek": dict(base_url="https://api.deepseek.com", key_env="DEEPSEEK_API_KEY",
-                     model_env="DEEPSEEK_MODEL", default_model="deepseek-v4.1-pro"),
-    "qwen": dict(base_url="https://dashscope.aliyuncs.com/compatible-mode/v1", key_env="DASHSCOPE_API_KEY",
-                 model_env="QWEN_MODEL", default_model="qwen3.8-max"),
+# ---- third-party providers -------------------------------------------------------------
+# style "openai": chat completions with function calling; "anthropic": Messages API.
+# Base URL, key, model and style can be overridden from the environment (see .env.example):
+# <NAME>_BASE_URL, <NAME>_MODEL, <NAME>_API_STYLE, and the key variable(s) below.
+# Check with `python -m agent.check_providers`.
+PROVIDERS = {
+    "deepseek": dict(style="openai", base_url="https://api.deepseek.com", key_envs=("DEEPSEEK_API_KEY",),
+                     default_model="deepseek-v4.1-pro"),
+    # 千问 AI 平台 (platform.qianwenai.com), Anthropic-compatible endpoint.
+    "qwen": dict(style="anthropic", base_url="https://maas.qianwenaiapi.com/apps/anthropic",
+                 key_envs=("QWEN_API_KEY", "DASHSCOPE_API_KEY"), default_model="qwen3.8-max"),
 }
 OPENAI_TOOLS = [{"type": "function",
                  "function": {"name": t["name"], "description": t["description"],
@@ -160,24 +179,27 @@ def provider_config(provider):
 
     from .env import load_env
     load_env()
-    cfg = OPENAI_COMPAT[provider]
-    return dict(base_url=os.environ.get(f"{provider.upper()}_BASE_URL", cfg["base_url"]),
-                api_key=os.environ.get(cfg["key_env"]),
-                model=os.environ.get(cfg["model_env"], cfg["default_model"]), key_env=cfg["key_env"])
+    cfg = PROVIDERS[provider]
+    name = provider.upper()
+    key_env = next((k for k in cfg["key_envs"] if os.environ.get(k)), cfg["key_envs"][0])
+    return dict(style=os.environ.get(f"{name}_API_STYLE", cfg["style"]),
+                base_url=os.environ.get(f"{name}_BASE_URL", cfg["base_url"]),
+                api_key=os.environ.get(key_env), key_env=key_env,
+                model=os.environ.get(f"{name}_MODEL", cfg["default_model"]))
 
 
-def make_openai_client(provider):
-    import openai
+def make_client(provider):
     cfg = provider_config(provider)
     if not cfg["api_key"]:
         raise RuntimeError(f"{cfg['key_env']} is not set (environment settings or .env)")
+    if cfg["style"] == "anthropic":
+        import anthropic
+        return anthropic.Anthropic(api_key=cfg["api_key"], base_url=cfg["base_url"])
+    import openai
     return openai.OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
 
 
-def _loop_openai_compat(run, question, client, max_turns, provider, model):
-    model = model or provider_config(provider)["model"]
-    if client is None:
-        client = make_openai_client(provider)
+def _loop_openai_compat(run, question, client, max_turns, model):
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question}]
     for turn in range(max_turns):
         response = client.chat.completions.create(model=model, messages=messages, tools=OPENAI_TOOLS,

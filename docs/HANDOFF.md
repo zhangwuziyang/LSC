@@ -5,7 +5,8 @@
 ## 当前状态
 - 方法部分已完成并通过验证，结果见 `docs/RESULTS.md`（E1 v2：新方法 RMSE 0.064，95% CI 覆盖率 96.5%）。
 - Agent 系统已完成：`agent/session.py`（6 个工具步骤 + G1–G5）、`agent/orchestrator.py`（Claude / DeepSeek / 通义千问）、`sim/traps.py`（5 个埋错任务）。22 个测试通过。
-- 用户已在环境设置里添加 `DASHSCOPE_API_KEY`、`DEEPSEEK_API_KEY`，并放行 `dashscope.aliyuncs.com`、`api.deepseek.com`（旧会话中已确认网络可达）。
+- 千问用的是「千问 AI 平台」（platform.qianwenai.com），不是百炼；接口改为 Anthropic 兼容地址 `https://maas.qianwenaiapi.com/apps/anthropic`（代码默认值），需要放行 `maas.qianwenaiapi.com`。key 读 `QWEN_API_KEY`，没有则读 `DASHSCOPE_API_KEY`。
+- 第一次连通检查（session_01SNYrEzQLxntqNkhSA4wsZU）：两家都 401。DeepSeek key 长度 117，疑似粘贴错误；千问 key 发到了百炼地址。
 - 用户指定的旗舰模型：`qwen3.8-max`、`deepseek-v4.1-pro`（模型 ID 写法待 check_providers 确认）。
 
 ## 新会话要做的事（按顺序）

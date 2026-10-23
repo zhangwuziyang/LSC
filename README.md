@@ -54,12 +54,12 @@ python experiments/e2b_agent.py --reps 3                                   # 完
 
 默认模型为 `claude-opus-5-5`，开启了服务端拒答回退（`fallbacks="default"`）。
 
-也可以用通义千问或 DeepSeek（OpenAI 兼容接口）：
+也可以用通义千问或 DeepSeek：
 
-| provider | key 变量 | 默认模型 | 需要放行的域名 |
-|---|---|---|---|
-| `qwen` | `DASHSCOPE_API_KEY` | `qwen3.8-max`（`QWEN_MODEL` 可改） | `dashscope.aliyuncs.com`（国际站：`dashscope-intl.aliyuncs.com`） |
-| `deepseek` | `DEEPSEEK_API_KEY` | `deepseek-v4.1-pro`（`DEEPSEEK_MODEL` 可改） | `api.deepseek.com` |
+| provider | 接口 | key 变量 | 默认模型 | 需要放行的域名 |
+|---|---|---|---|---|
+| `qwen` | 千问 AI 平台，Anthropic 兼容 | `QWEN_API_KEY`（或 `DASHSCOPE_API_KEY`） | `qwen3.8-max`（`QWEN_MODEL` 可改） | `maas.qianwenaiapi.com` |
+| `deepseek` | OpenAI 兼容 | `DEEPSEEK_API_KEY` | `deepseek-v4.1-pro`（`DEEPSEEK_MODEL` 可改） | `api.deepseek.com` |
 
 key 放在云端环境设置里，或复制 `.env.example` 为 `.env` 填写（`.env` 不会提交）。先检查连通性和模型名，再跑实验：
 
