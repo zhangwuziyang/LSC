@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 data/
+
+# local secrets
+.env

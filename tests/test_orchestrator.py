@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace as NS
 
 import numpy as np
+import pytest
 from lightgbm import LGBMRegressor
 
 from agent.orchestrator import TOOLS, run_agent
@@ -125,7 +126,8 @@ class FakeOpenAIClient:
         return NS(choices=[NS(message=msg, finish_reason="tool_calls")], usage=None)
 
 
-def test_deepseek_loop_runs_the_same_tools():
+@pytest.mark.parametrize("provider", ["deepseek", "qwen"])
+def test_openai_compatible_loop_runs_the_same_tools(provider):
     task = {t.id: t for t in make_tasks(3000)}["post_treatment"]
     script = [
         [("build_dataset", {"covariates": PRE_COVS + ["post_orders"]})],
@@ -137,7 +139,7 @@ def test_deepseek_loop_runs_the_same_tools():
         "已删除干预后变量 post_orders。",
     ]
     client = FakeOpenAIClient(script)
-    run = run_agent(task.df, task.question, client=client, session_kw=FAST, provider="deepseek")
+    run = run_agent(task.df, task.question, client=client, session_kw=FAST, provider=provider)
     assert run.stop_reason == "stop" and not client.script
     assert run.trace[0]["gate"]["status"] == "block" and run.trace[1]["is_error"]
     assert all(task.checks(run).values())

@@ -1,5 +1,6 @@
 """LLM orchestrator: the model plans the analysis and calls the session steps as tools.
-Claude (Anthropic API) is the default; DeepSeek runs through its OpenAI-compatible API.
+Claude (Anthropic API) is the default; DeepSeek and Qwen run through their
+OpenAI-compatible APIs.
 
 The model never computes anything. Every number in the final report is produced by the
 engine and checked by Gate G5; a gate that blocks is reported back as the tool result,
@@ -96,11 +97,11 @@ def _call_tool(session, run, turn, name, args):
 
 def run_agent(df, question, client=None, session_kw=None, max_turns=25, effort="high",
               provider="anthropic", model=None):
-    """provider: "anthropic" (Claude, default) or "deepseek" (OpenAI-compatible API)."""
+    """provider: "anthropic" (Claude, default) or one of OPENAI_COMPAT ("deepseek", "qwen")."""
     session = AnalysisSession(df, **(session_kw or {}))
     run = AgentRun(final_text="", session=session)
-    if provider == "deepseek":
-        return _loop_deepseek(run, question, client, max_turns, model or DEEPSEEK_MODEL)
+    if provider in OPENAI_COMPAT:
+        return _loop_openai_compat(run, question, client, max_turns, provider, model)
     if provider != "anthropic":
         raise ValueError(f"unknown provider {provider}")
     if client is None:
@@ -139,20 +140,44 @@ def run_agent(df, question, client=None, session_kw=None, max_turns=25, effort="
     return run
 
 
-# ---- DeepSeek (OpenAI-compatible chat completions with function calling) ---------------
-DEEPSEEK_BASE_URL = "https://api.deepseek.com"
-DEEPSEEK_MODEL = "deepseek-chat"
+# ---- OpenAI-compatible providers (DeepSeek, Qwen via DashScope) -------------------------
+# Base URL, key and model can be overridden through the environment (see .env.example).
+# Model IDs follow each provider's naming; list what an account can use with
+# `python -m agent.check_providers`.
+OPENAI_COMPAT = {
+    "deepseek": dict(base_url="https://api.deepseek.com", key_env="DEEPSEEK_API_KEY",
+                     model_env="DEEPSEEK_MODEL", default_model="deepseek-v4.1-pro"),
+    "qwen": dict(base_url="https://dashscope.aliyuncs.com/compatible-mode/v1", key_env="DASHSCOPE_API_KEY",
+                 model_env="QWEN_MODEL", default_model="qwen3.8-max"),
+}
 OPENAI_TOOLS = [{"type": "function",
                  "function": {"name": t["name"], "description": t["description"],
                               "parameters": t["input_schema"]}} for t in TOOLS]
 
 
-def _loop_deepseek(run, question, client, max_turns, model):
-    if client is None:
-        import os
+def provider_config(provider):
+    import os
 
-        import openai
-        client = openai.OpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url=DEEPSEEK_BASE_URL)
+    from .env import load_env
+    load_env()
+    cfg = OPENAI_COMPAT[provider]
+    return dict(base_url=os.environ.get(f"{provider.upper()}_BASE_URL", cfg["base_url"]),
+                api_key=os.environ.get(cfg["key_env"]),
+                model=os.environ.get(cfg["model_env"], cfg["default_model"]), key_env=cfg["key_env"])
+
+
+def make_openai_client(provider):
+    import openai
+    cfg = provider_config(provider)
+    if not cfg["api_key"]:
+        raise RuntimeError(f"{cfg['key_env']} is not set (environment settings or .env)")
+    return openai.OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
+
+
+def _loop_openai_compat(run, question, client, max_turns, provider, model):
+    model = model or provider_config(provider)["model"]
+    if client is None:
+        client = make_openai_client(provider)
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question}]
     for turn in range(max_turns):
         response = client.chat.completions.create(model=model, messages=messages, tools=OPENAI_TOOLS,
