@@ -26,6 +26,7 @@ class DoseResponse:
     h: float = None
     ess: np.ndarray = None    # effective sample size at each grid point
     xi: np.ndarray = field(repr=False, default=None)        # DR pseudo-outcomes
+    vif: float = 1.0          # variance inflation applied to the draws (see subsample_inflation)
 
     def ci(self, alpha=0.05):
         lo, hi = np.quantile(self.draws, [alpha / 2, 1 - alpha / 2], axis=0)
@@ -81,7 +82,8 @@ def _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed):
 
 def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_model,
                      n_folds=5, n_splits=1, h=None, undersmooth=0.5, n_boot=500,
-                     weight_clip=0.999, n_mc=1000, n_dose_grid=150, seed=0):
+                     weight_clip=0.999, n_mc=1000, n_dose_grid=150, inflate=False,
+                     n_sub=20, sub_frac=0.25, seed=0):
     """Cross-fitted doubly robust dose-response curve.
 
     Pseudo-outcome (Kennedy et al., 2017):
@@ -101,6 +103,11 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     bootstrap draws of all splits are pooled, so their spread includes the variation
     across splits as well as the within-split sampling variance. Each split's xi is
     noisier than the average, so the pooled spread is slightly conservative.
+
+    The multiplier bootstrap treats xi as fixed and so misses the variance of the
+    nuisance fits; in simulations its SE is ~20% too small. With inflate=True the draws
+    are rescaled by a variance inflation factor estimated by subsampling
+    (see `subsample_inflation`).
 
     `gps` and `outcome` are factories (called with no args / with seed) so each fold
     gets fresh models.
@@ -127,9 +134,37 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     per = max(1, n_boot // n_splits)
     draws = np.concatenate([local_linear_multiplier_bootstrap(D, x_s, grid, h, n_boot=per, seed=seed + sp)
                             for sp, x_s in enumerate(xis)])
-    return DoseResponse(grid=grid, mu=mu, draws=draws,
-                        method=f"DR[{gps.__name__ if hasattr(gps, '__name__') else 'gps'}]",
-                        D=D, weights=ratio, h=h, ess=_ess(D, grid, h, w_used), xi=xi)
+    res = DoseResponse(grid=grid, mu=mu, draws=draws,
+                       method=f"DR[{gps.__name__ if hasattr(gps, '__name__') else 'gps'}]",
+                       D=D, weights=ratio, h=h, ess=_ess(D, grid, h, w_used), xi=xi)
+    if inflate:
+        kw = dict(gps=gps, outcome=outcome, n_folds=n_folds, weight_clip=weight_clip,
+                  n_mc=n_mc, n_dose_grid=n_dose_grid)
+        res.vif = subsample_inflation(X, D, dY, res, kw, n_sub=n_sub, frac=sub_frac, seed=seed)
+        res.draws = mu + np.sqrt(res.vif) * (draws - mu)
+    return res
+
+
+def subsample_inflation(X, D, dY, res, fit_kw, n_sub=20, frac=0.25, seed=0):
+    """Scalar variance inflation factor for the multiplier-bootstrap draws.
+
+    Refits the full estimator (nuisances included, bandwidth held at res.h) on n_sub
+    subsamples of size b = frac * n drawn without replacement. For subsamples of one
+    data set, Var(mu_b) = sigma^2 (1/b - 1/n), so the full-sample variance is
+    Var(mu_b) / (n/b - 1). Nuisances fit on b < n points are worse, which makes the
+    factor conservative. The factor is the median ratio over grid points (one scalar
+    keeps the correlation structure of the draws), and never below 1.
+    """
+    rng = np.random.default_rng(seed + 7919)
+    n = len(D)
+    b = int(frac * n)
+    sub = np.stack([
+        dr_dose_response(X[idx], D[idx], dY[idx], res.grid, h=res.h, n_boot=1, seed=seed + j + 1,
+                         **fit_kw).mu
+        for j, idx in enumerate(rng.choice(n, b, replace=False) for _ in range(n_sub))])
+    sub_var = sub.var(0, ddof=1) / (n / b - 1)
+    ratio = sub_var / res.draws.var(0)
+    return float(max(1.0, np.median(ratio[np.isfinite(ratio)])))
 
 
 def _hi_design(d, r):
