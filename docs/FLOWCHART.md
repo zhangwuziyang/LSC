@@ -1,4 +1,4 @@
-# 系统流程图（v0.2）
+# 系统流程图（v0.3）
 
 蓝色 = LLM 环节，橙色 = 假设把关 Gate，绿色 = 输出。
 
@@ -10,7 +10,7 @@ flowchart TD
     B --> G1{"G1 时序<br/>X 都在 pre 期？"}
     G1 -- 否 --> B
     G1 -- 是 --> GPS["估计 GPS<br/>log + 异方差 GBM"]
-    GPS --> G2{"G2 平衡<br/>加权后 |corr| < 0.1？"}
+    GPS --> G2{"G2 平衡<br/>加权后 |corr| < 0.25？"}
     G2 -- 否 --> GPS
     G2 -- 是 --> DR["双稳健剂量响应<br/>交叉拟合 + bootstrap"]
     DR --> G3["G3 重叠<br/>ESS 分级"]

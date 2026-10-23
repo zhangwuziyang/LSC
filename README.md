@@ -1,6 +1,6 @@
 # GPS-DID × AI
 
-研究计划见 [docs/proposal.html](docs/proposal.html)，流程图见 [docs/FLOWCHART.md](docs/FLOWCHART.md)。
+研究计划见 [docs/proposal.html](docs/proposal.html)，流程图见 [docs/FLOWCHART.md](docs/FLOWCHART.md)，方法修正与实验结果见 [docs/RESULTS.md](docs/RESULTS.md)。
 
 ## 代码结构
 

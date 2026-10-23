@@ -4,6 +4,10 @@ import numpy as np
 from .gates import g5_numbers
 
 GRADE_CN = {"trusted": "可信", "caution": "谨慎", "extrapolation": "外推"}
+# Kink CIs wider than this are not reported as a finding (diag_kink_scaling: mean CI width
+# 8.1 days at n=20k, 6.0 at n=100k).
+KINK_MAX_CI = 3
+
 STATUS_CN = {"pass": "通过", "degrade": "降级", "block": "阻断"}
 
 
@@ -21,7 +25,7 @@ def _numbers(obj):
 def allowed_numbers(result):
     nums = list(_numbers({k: v for k, v in result.items() if k != "gates"}))
     # Display constants used by the template itself.
-    nums += [95, 0.1, 1, 2, 3, 4, 5]
+    nums += [95, 0.25, KINK_MAX_CI, 1, 2, 3, 4, 5]
     return nums
 
 
@@ -49,7 +53,11 @@ def render(result, narrative=""):
             row += f" [{c['sens_lo'][i]:.3f}, {c['sens_hi'][i]:.3f}] |"
         L.append(row)
     k = result["kink"]
-    L += ["", f"拐点估计为 {k['point']:.2f} 天，95% CI [{k['lo']:.2f}, {k['hi']:.2f}]。", ""]
+    if k["hi"] - k["lo"] <= KINK_MAX_CI:
+        L += ["", f"拐点估计为 {k['point']:.2f} 天，95% CI [{k['lo']:.2f}, {k['hi']:.2f}]。", ""]
+    else:
+        L += ["", f"拐点的 95% CI 为 [{k['lo']:.2f}, {k['hi']:.2f}]，宽于 {KINK_MAX_CI} 天，"
+              "样本量不足以确定拐点位置，不作结论。", ""]
 
     L += ["## 增益矩阵", "", f"把当前妥投 a 天的用户缩短到 b 天，带来的日均 GMV 增益（post 期按 {days} 天折算）。"
           "外推格子不进入结论。", "",

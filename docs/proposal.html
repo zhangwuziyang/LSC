@@ -86,7 +86,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 <main>
 <header>
-  <div class="eyebrow">Research Proposal · v0.2</div>
+  <div class="eyebrow">Research Proposal · v0.3</div>
   <h1>面向连续处理双重差分的假设把关型分析 Agent</h1>
   <p class="en">An Assumption-Gated LLM Agent for Continuous-Treatment Difference-in-Differences: Evidence from Cross-Border E-commerce Logistics</p>
   <div class="meta"><span>zhangwuziyang</span><span>2026-10</span><span>目标：KDD Applied Data Science Track</span><span>周期：16 周</span></div>
@@ -162,13 +162,13 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 μ̂(d) = 局部线性回归 ξ ~ D 在 d 处的拟合值</div>
 <p>双稳健的意思是：结果模型和 GPS 只要有一个估计准确，μ̂(d) 就是一致的。分组曲线 μ̂<sub>g</sub>(d) 只需要在每个价值档内对伪结果做同样的回归。</p>
 <ul>
-  <li><b>置信区间：</b>乘子 bootstrap（B = 1000），同时给出点态 CI 和一致置信带。</li>
+  <li><b>置信区间：</b>乘子 bootstrap，同时给出点态 CI 和一致置信带。带宽取交叉验证带宽的一半，减小拐点处的平滑偏误。乘子 bootstrap 漏掉了 nuisance 模型的估计方差（模拟中标准误小约 18%），所以再用 12 个半样本重拟合整个估计量，估计方差膨胀系数，把 bootstrap 抽样统一放大。修正后点态覆盖率从 84% 升到 96.5%。</li>
   <li><b>增益 CI：</b>θ(d, d′) 和 Gain(d→d′) 用同一组 bootstrap 抽样计算，保留两点之间的相关性。</li>
-  <li><b>拐点：</b>对 μ̂(d) 做两段线性拟合，在每次 bootstrap 中重估拐点位置，得到拐点的 CI，用来检验"10 天"这个结论。</li>
+  <li><b>拐点：</b>直接对伪结果 ξ 做两段线性回归（不经过平滑），用乘子 bootstrap 得到拐点 CI。模拟中 2 万样本时误差 1.7 天，10 万样本时 0.4 天；CI 宽于 3 天时报告不作拐点结论。</li>
 </ul>
 
 <h3>4.5 重叠性诊断</h3>
-<p>把 2% / 0.5% 的密度阈值换成每个剂量点的有效样本量 ESS(d) = (Σw)² / Σw²，其中 w 是该点核回归的权重。ESS 直接反映"这个点的估计用了多少有效数据"，和方差挂钩。增益矩阵中每个格子按起点和终点 ESS 的较小值分为 <span class="tag t-ok">可信</span> <span class="tag t-gate">谨慎</span> <span class="tag t-cut">外推</span> 三级，具体阈值通过半合成实验中 CI 覆盖率开始失效的位置来确定，而不是拍定。</p>
+<p>把 2% / 0.5% 的密度阈值换成每个剂量点的有效样本量 ESS(d) = (Σw)² / Σw²，其中 w 是该点核回归的权重。ESS 直接反映"这个点的估计用了多少有效数据"，和方差挂钩。增益矩阵中每个格子按起点和终点 ESS 的较小值分为 <span class="tag t-ok">可信</span> <span class="tag t-gate">谨慎</span> <span class="tag t-cut">外推</span> 三级：ESS ≥ 200 可信，50–200 谨慎，&lt; 50 外推。半合成实验显示，加上方差膨胀后各 ESS 区间的覆盖率都接近 95%，所以分级表示的是精度：ESS &lt; 50 时 CI 宽度是 ESS ≥ 200 时的两倍以上，而且 GPS 处于外推区。</p>
 
 <h3>4.6 Placebo 检验与敏感性</h3>
 <ul>
@@ -192,7 +192,7 @@ flowchart TD
     B --> G1{"G1 时序<br/>X 都在 pre 期？"}
     G1 -- 否 --> B
     G1 -- 是 --> GPS["估计 GPS<br/>log + 异方差 GBM"]
-    GPS --> G2{"G2 平衡<br/>加权后 |corr| &lt; 0.1？"}
+    GPS --> G2{"G2 平衡<br/>加权后 |corr| &lt; 0.25？"}
     G2 -- 否 --> GPS
     G2 -- 是 --> DR["双稳健剂量响应<br/>交叉拟合 + bootstrap"]
     DR --> G3["G3 重叠<br/>ESS 分级"]
@@ -227,8 +227,8 @@ flowchart TD
 <div class="tbl"><table>
   <tr><th>Gate</th><th>判定</th><th>不通过时</th></tr>
   <tr><td>G1 时序</td><td>所有 X 的 <code>period</code> 都是 pre</td><td><span class="tag t-cut">阻断</span> 要求换变量</td></tr>
-  <tr><td>G2 平衡</td><td>加权后每个 X 与 D 的 |corr| &lt; 0.1</td><td>调参重估一次，仍不过则 <span class="tag t-gate">降级</span></td></tr>
-  <tr><td>G3 重叠</td><td>ESS 分级（阈值由实验校准）</td><td>"外推"格子不进入结论</td></tr>
+  <tr><td>G2 平衡</td><td>加权后每个 X 与 D 的 |corr| &lt; 0.25（模拟中正确的 GPS 为 0.06–0.22，设定错误的为 0.36–0.94）</td><td>调参重估一次，仍不过则 <span class="tag t-gate">降级</span></td></tr>
+  <tr><td>G3 重叠</td><td>ESS ≥ 200 可信 / 50–200 谨慎 / &lt; 50 外推</td><td>"外推"格子不进入结论</td></tr>
   <tr><td>G4 Placebo</td><td>placebo 一致置信带覆盖 0</td><td><span class="tag t-gate">降级</span> 只报敏感性区间</td></tr>
   <tr><td>G5 数字核对</td><td>报告中每个数字都能在引擎输出里找到</td><td><span class="tag t-cut">阻断</span> 退回重写</td></tr>
 </table></div>

@@ -28,7 +28,11 @@ def g1_timing(covariates, semantic):
     return GateResult("G1 时序", "pass", f"{len(covariates)} 个协变量均为 pre 期变量"), []
 
 
-def g2_balance(table, threshold=0.1):
+def g2_balance(table, threshold=0.25):
+    """Weighted |corr(X, D)| with unclipped GPS weights. Calibrated on 10 reps (n=20k):
+    the hetero-GBM GPS gives max |corr| 0.055-0.215, a misspecified normal GPS 0.36-0.94;
+    the usual 0.1 rule would flag most good fits because heavy weights make the
+    weighted correlation noisy."""
     worst = table.loc[table.corr_weighted.abs().idxmax()]
     msg = (f"加权后 X 与 D 的最大绝对相关为 {abs(worst.corr_weighted):.3f}（{worst.covariate}），"
            f"加权前为 {abs(table.corr_raw).max():.3f}，阈值 {threshold}")
