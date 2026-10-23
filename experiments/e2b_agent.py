@@ -42,13 +42,23 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     tasks = [t for t in make_tasks(args.n) if args.tasks is None or t.id in args.tasks]
+    # Append to earlier runs; a (condition, task, rep) that is run again replaces the old row.
+    summary = out_dir / "summary.csv"
+    prev = pd.read_csv(summary) if summary.exists() else pd.DataFrame()
     rows = []
     for cond in args.conditions:
         for task in tasks:
             for rep in range(args.reps):
                 t0 = time.time()
-                run = run_agent(task.df, task.question, session_kw=dict(seed=rep, **CONDITIONS[cond]),
-                                effort=args.effort, provider=args.provider, model=args.model)
+                try:
+                    run = run_agent(task.df, task.question, session_kw=dict(seed=rep, **CONDITIONS[cond]),
+                                    effort=args.effort, provider=args.provider, model=args.model)
+                except Exception as e:  # API failure: record it and move on to the next run
+                    print(f"{cond}/{task.id}/{rep} failed: {type(e).__name__}: {e}", flush=True)
+                    rows.append(dict(provider=args.provider, condition=cond, task=task.id, rep=rep,
+                                     passed_all=False, stop_reason=f"error: {type(e).__name__}",
+                                     seconds=time.time() - t0))
+                    continue
                 checks = task.checks(run)
                 rows.append(dict(provider=args.provider, condition=cond, task=task.id, rep=rep, passed_all=all(checks.values()),
                                  turns=run.turns, tool_calls=len(run.trace), seconds=time.time() - t0,
@@ -58,8 +68,9 @@ def main():
                     dict(final_text=run.final_text, trace=run.trace, checks=checks,
                          report=run.session.report), ensure_ascii=False, indent=1, default=str))
                 print(rows[-1], flush=True)
-                pd.DataFrame(rows).to_csv(out_dir / "summary.csv", index=False)
-    df = pd.DataFrame(rows)
+                df = pd.concat([prev, pd.DataFrame(rows)]).drop_duplicates(
+                    ["condition", "task", "rep"], keep="last")
+                df.to_csv(summary, index=False)
     print(df.groupby(["condition", "task"])["passed_all"].mean().unstack().round(2))
 
 
