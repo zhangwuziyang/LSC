@@ -164,7 +164,7 @@ def _loop_anthropic(run, question, client, max_turns, model, claude, effort="hig
 # Check with `python -m agent.check_providers`.
 PROVIDERS = {
     "deepseek": dict(style="openai", base_url="https://api.deepseek.com", key_envs=("DEEPSEEK_API_KEY",),
-                     default_model="deepseek-v4.1-pro"),
+                     default_model="deepseek-v4-pro"),
     # 千问 AI 平台 (platform.qianwenai.com), Anthropic-compatible endpoint.
     "qwen": dict(style="anthropic", base_url="https://maas.qianwenaiapi.com/apps/anthropic",
                  key_envs=("QWEN_API_KEY", "DASHSCOPE_API_KEY"), default_model="qwen3.8-max"),

@@ -59,7 +59,7 @@ python experiments/e2b_agent.py --reps 3                                   # 完
 | provider | 接口 | key 变量 | 默认模型 | 需要放行的域名 |
 |---|---|---|---|---|
 | `qwen` | 千问 AI 平台，Anthropic 兼容 | `QWEN_API_KEY`（或 `DASHSCOPE_API_KEY`） | `qwen3.8-max`（`QWEN_MODEL` 可改） | `maas.qianwenaiapi.com` |
-| `deepseek` | OpenAI 兼容 | `DEEPSEEK_API_KEY` | `deepseek-v4.1-pro`（`DEEPSEEK_MODEL` 可改） | `api.deepseek.com` |
+| `deepseek` | OpenAI 兼容 | `DEEPSEEK_API_KEY` | `deepseek-v4-pro`（`DEEPSEEK_MODEL` 可改） | `api.deepseek.com` |
 
 key 放在云端环境设置里，或复制 `.env.example` 为 `.env` 填写（`.env` 不会提交）。先检查连通性和模型名，再跑实验：
 
