@@ -60,7 +60,7 @@ def test_sup_t_band_contains_pointwise():
 def test_dr_recovers_contrast(sim):
     grid = np.arange(6, 16.01, 1.0)
     res = dr_dose_response(sim.X, sim.D, sim.dY, grid, gps=fast_gps, outcome=fast_outcome,
-                           n_folds=3, n_boot=100)
+                           n_folds=3, n_boot=100, inflate=False)
     p, _ = res.contrast(10)
     truth = sim.true_contrast(10, grid)
     assert np.sqrt(np.mean((p - truth) ** 2)) < 0.15
@@ -99,7 +99,7 @@ def test_diagnostics(sim):
 
 def test_placebo_detects_trend_violation():
     grid = np.arange(6, 16.01, 1.0)
-    kw = dict(gps=fast_gps, outcome=fast_outcome, n_folds=3, n_boot=200)
+    kw = dict(gps=fast_gps, outcome=fast_outcome, n_folds=3, n_boot=200, inflate=False)
     clean = simulate(6000, tau=0.0, seed=5)
     bad = simulate(6000, tau=3.0, seed=5)
     _, p_clean, *_ = placebo_check(dr_dose_response(clean.X, clean.D, clean.dY_placebo, grid, **kw), 10)
@@ -108,3 +108,13 @@ def test_placebo_detects_trend_violation():
     # at the edges (the false-rejection rate is measured in E2), so only compare magnitudes here.
     assert not ok_bad
     assert np.abs(p_bad).max() > 3 * np.abs(p_clean).max()
+
+
+def test_inflation_widens_draws(sim):
+    grid = np.arange(6, 16.01, 1.0)
+    kw = dict(gps=fast_gps, outcome=fast_outcome, n_folds=3, n_boot=100, h=1.0, seed=1)
+    raw = dr_dose_response(sim.X, sim.D, sim.dY, grid, inflate=False, **kw)
+    inf = dr_dose_response(sim.X, sim.D, sim.dY, grid, inflate=True, n_sub=4, **kw)
+    assert inf.vif >= 1.0
+    assert np.allclose(inf.mu, raw.mu)
+    assert np.allclose(inf.draws.std(0), np.sqrt(inf.vif) * raw.draws.std(0))

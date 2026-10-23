@@ -31,7 +31,7 @@ for rep in range(REPS):
     s = simulate(20000, seed=100 + rep)
     truth = s.true_contrast(10, GRID)
     for name, kw in VARIANTS.items():
-        r = dr_dose_response(s.X, s.D, s.dY, GRID, seed=rep, n_boot=300, **kw)
+        r = dr_dose_response(s.X, s.D, s.dY, GRID, seed=rep, n_boot=300, inflate=False, **kw)
         p, dr = r.contrast(10)
         rows.append(pd.DataFrame(dict(variant=name, rep=rep, d=GRID, est=p, truth=truth, se=dr.std(0))))
     print(f"rep {rep + 1}/{REPS}", flush=True)

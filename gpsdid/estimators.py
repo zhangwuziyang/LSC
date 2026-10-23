@@ -82,8 +82,8 @@ def _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed):
 
 def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_model,
                      n_folds=5, n_splits=1, h=None, undersmooth=0.5, n_boot=500,
-                     weight_clip=0.999, n_mc=1000, n_dose_grid=150, inflate=False,
-                     n_sub=20, sub_frac=0.25, seed=0):
+                     weight_clip=0.999, n_mc=1000, n_dose_grid=150, inflate=True,
+                     n_sub=12, sub_frac=0.5, seed=0):
     """Cross-fitted doubly robust dose-response curve.
 
     Pseudo-outcome (Kennedy et al., 2017):
@@ -105,9 +105,10 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     noisier than the average, so the pooled spread is slightly conservative.
 
     The multiplier bootstrap treats xi as fixed and so misses the variance of the
-    nuisance fits; in simulations its SE is ~20% too small. With inflate=True the draws
-    are rescaled by a variance inflation factor estimated by subsampling
-    (see `subsample_inflation`).
+    nuisance fits; in simulations its SE is ~20% too small and pointwise coverage ~0.90.
+    With inflate=True (default) the draws are rescaled by a variance inflation factor
+    estimated by subsampling (see `subsample_inflation`); half-size subsamples gave
+    coverage 0.97 (quarter-size: 0.99, too conservative). Costs ~n_sub * sub_frac extra fits.
 
     `gps` and `outcome` are factories (called with no args / with seed) so each fold
     gets fresh models.
@@ -145,7 +146,7 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     return res
 
 
-def subsample_inflation(X, D, dY, res, fit_kw, n_sub=20, frac=0.25, seed=0):
+def subsample_inflation(X, D, dY, res, fit_kw, n_sub=12, frac=0.5, seed=0):
     """Scalar variance inflation factor for the multiplier-bootstrap draws.
 
     Refits the full estimator (nuisances included, bandwidth held at res.h) on n_sub
@@ -159,8 +160,8 @@ def subsample_inflation(X, D, dY, res, fit_kw, n_sub=20, frac=0.25, seed=0):
     n = len(D)
     b = int(frac * n)
     sub = np.stack([
-        dr_dose_response(X[idx], D[idx], dY[idx], res.grid, h=res.h, n_boot=1, seed=seed + j + 1,
-                         **fit_kw).mu
+        dr_dose_response(X[idx], D[idx], dY[idx], res.grid, h=res.h, n_boot=1, inflate=False,
+                         seed=seed + j + 1, **fit_kw).mu
         for j, idx in enumerate(rng.choice(n, b, replace=False) for _ in range(n_sub))])
     sub_var = sub.var(0, ddof=1) / (n / b - 1)
     ratio = sub_var / res.draws.var(0)
