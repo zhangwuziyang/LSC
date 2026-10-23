@@ -3,17 +3,18 @@ name = "gpsdid"
 version = "0.1.0"
 description = "GPS-DID: doubly robust dose-response estimation for continuous-treatment difference-in-differences"
 requires-python = ">=3.10"
-dependencies = ["numpy", "pandas", "scipy", "scikit-learn", "lightgbm"]
+dependencies = ["numpy", "pandas", "scipy", "scikit-learn", "lightgbm", "pyyaml"]
 
 [project.optional-dependencies]
-dev = ["pytest", "matplotlib"]
+dev = ["pytest", "matplotlib", "tabulate"]
+agent = ["anthropic", "openai"]
 
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["gpsdid", "sim"]
+packages = ["gpsdid", "sim", "agent"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
