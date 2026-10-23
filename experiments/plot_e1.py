@@ -52,7 +52,7 @@ def main():
 
         ax = axes[2]
         g = df[(df.method == "E1+M1 (proposed)") & (df.d != 10) & df.ess.notna()].copy()
-        bins = np.array([0, 50, 100, 200, 500, 1000, 2000, np.inf])
+        bins = np.array([0, 25, 50, 100, 200, 500, 1000, np.inf])
         g["bin"] = pd.cut(g.ess, bins, right=False)
         cal = g.groupby("bin", observed=True).agg(cov=("covered", "mean"), n=("covered", "size"),
                                                    ess=("ess", "median"))

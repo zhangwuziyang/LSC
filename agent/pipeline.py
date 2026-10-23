@@ -11,7 +11,7 @@ from .semantic import SemanticLayer
 
 def run_analysis(df, semantic=None, covariates=None, grid=None, d0=10.0, kink_range=(6, 18),
                  from_days=(12, 13, 14, 15), to_days=(10, 11, 12), days=76,
-                 ess_thresholds=(500, 100), estimator_kw=None, seed=0):
+                 ess_thresholds=(200, 50), estimator_kw=None, seed=0):
     semantic = semantic or SemanticLayer()
     grid = np.arange(5.0, 20.01, 0.5) if grid is None else np.asarray(grid, float)
     covariates = list(covariates or semantic.columns("covariate"))

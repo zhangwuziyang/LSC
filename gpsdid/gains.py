@@ -41,7 +41,7 @@ def kink(res, lo, hi, step=0.25, n_boot=200, alpha=0.05, seed=0):
     return point, np.quantile(boot, [alpha / 2, 1 - alpha / 2])
 
 
-def gain_matrix(res, D, from_days, to_days, days=76, alpha=0.05, trusted=500, caution=100):
+def gain_matrix(res, D, from_days, to_days, days=76, alpha=0.05, trusted=200, caution=50):
     """Daily gain of moving everyone whose rounded dose is `a` to dose `b` (< a):
 
         Gain(a -> b) = N_a * (mu(b) - mu(a)) / days

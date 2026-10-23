@@ -92,7 +92,7 @@ def test_kink_and_gains_on_known_curve():
 def test_diagnostics(sim):
     tbl = balance_table(sim.X, sim.D, np.ones_like(sim.D))
     assert np.allclose(tbl.corr_raw, tbl.corr_weighted)
-    assert list(grade_overlap([600, 200, 50])) == ["trusted", "caution", "extrapolation"]
+    assert list(grade_overlap([250, 100, 30])) == ["trusted", "caution", "extrapolation"]
     lo, hi, bd = sensitivity(np.array([-1.0]), np.array([0.1]), np.array([0.2]), M=1.0)
     assert lo[0] < -1 < hi[0] and bd[0] == pytest.approx((1 - 0.196) / 0.2)
 

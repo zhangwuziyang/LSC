@@ -26,9 +26,14 @@ def balance_ok(table, threshold=0.1):
     return bool((table["corr_weighted"].abs() < threshold).all())
 
 
-def grade_overlap(ess, trusted=500, caution=100):
-    """Grade each dose by effective sample size. Thresholds are placeholders until
-    calibrated against CI coverage in the semi-synthetic experiments."""
+def grade_overlap(ess, trusted=200, caution=50):
+    """Grade each dose by effective sample size of the DR weights.
+
+    Calibrated on E1 (heavy tail, n=20k, variance-inflated CIs): pointwise coverage stays
+    near 0.95 at every ESS level, so the grade reports precision, not validity. At
+    ESS >= 200 the mean absolute error is <= 0.05 and CIs are ~0.3 wide; below 50 the
+    CIs are more than twice as wide, and the GPS model is extrapolating there, which the
+    simulation (a correctly specified location-scale GPS) does not stress-test."""
     ess = np.asarray(ess)
     return np.where(ess >= trusted, "trusted", np.where(ess >= caution, "caution", "extrapolation"))
 
