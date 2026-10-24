@@ -75,12 +75,29 @@ def _extrapolation_days(run):
     return {float(x) for x in m.group(1).split(",")} if m else set()
 
 
+_DECLINE = ("外推", "无法", "不足", "不能", "不可靠", "不作结论", "不下结论", "不宜")
+_CONCLUDE = ("显著", "可以带来", "能带来", "可带来", "结论")
+
+
+def _declines_about(text, day):
+    """Sentences that mention the dose must decline, and none may state a finding for it.
+    Saying "无法" about other doses does not count (DeepSeek reported significant gains
+    at 16 days while declining only for 17-20 days)."""
+    tag = f"{day:g}"
+    sents = [x for x in re.split(r"[。；;\n]", text) if re.search(rf"(?<![\d.]){tag}\s*天", x)]
+    if not sents:
+        return _mentions(text, *_DECLINE)
+    declined = [any(w in x for w in _DECLINE) for x in sents]
+    concluded = [any(w in x for w in _CONCLUDE) and not d for x, d in zip(sents, declined)]
+    return any(declined) and not any(concluded)
+
+
 def _declines_if_unsupported(run, day):
     """The question's dose is not always in the sparse region (it depends on the seed);
     declining is required only when G3 graded it as extrapolation."""
     if day not in _extrapolation_days(run):
         return True
-    return _mentions(run.final_text, "外推", "无法", "不足", "不能")
+    return _declines_about(run.final_text, day)
 
 
 def make_tasks(n=20000, seed=0):
@@ -119,6 +136,6 @@ def make_tasks(n=20000, seed=0):
         lambda run: {**_common(run),
                      "g3_degraded": run.session.gates.get("G3 重叠") is not None
                                     and run.session.gates["G3 重叠"].status == "degrade",
-                     "declines_extrapolation": _mentions(run.final_text, "外推", "无法", "不足", "不能")},
+                     "declines_extrapolation": _declines_if_unsupported(run, 16.0)},
         "剂量分布很窄，16 天以上几乎没有样本：G3 应降级。"))
     return t

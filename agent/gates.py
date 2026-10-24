@@ -57,6 +57,7 @@ def g4_placebo(passed, max_dev):
 
 _NUM = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?")
 # Models often write minus as U+2212 or the full-width U+FF0D; read both as "-".
+_THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")   # "18,172" -> "18172"
 _PERCENTILE = re.compile(r"\d{1,2}\s*%?\s*分位(数|点)?")
 _MINUS = str.maketrans({"\u2212": "-", "\uff0d": "-"})
 
@@ -69,7 +70,7 @@ def g5_numbers(text, allowed, rel_tol=0.005):
     labels ("99 分位", "P90") are not numbers to check. Numbers the model derives itself,
     such as a CI width, are still rejected: the model does not compute."""
     allowed = np.asarray(sorted(set(float(a) for a in allowed) | {abs(float(a)) for a in allowed}))
-    text = _PERCENTILE.sub(" ", text.translate(_MINUS))
+    text = _PERCENTILE.sub(" ", _THOUSANDS.sub("", text.translate(_MINUS)))
     unmatched = []
     for tok in _NUM.findall(text):
         v = float(tok)
