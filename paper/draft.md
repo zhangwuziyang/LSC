@@ -1,6 +1,6 @@
 # Assumption-Gated LLM Agents for Continuous-Treatment Difference-in-Differences: Evidence from Cross-Border E-commerce Logistics
 
-*Draft v0.1 — 2026-10-24. Sections marked **[TBD]** wait for the full E2b run and the case study.*
+*Draft v0.2 — 2026-10-24. All sections drafted; Qwen results beyond the full-system condition pending.*
 
 ---
 
@@ -183,7 +183,9 @@ The placebo test fails in both specifications: sellers with slower deliveries we
 - **Gate scope.** G4 detects mild trend violations only 60% of the time; the sensitivity interval is the second line of defence, not the placebo test alone. Gates check what can be checked; A1 remains an assumption.
 - **Agent variability.** Different models chose different (valid) covariate sets in the pilot, which changed estimates; covariate-choice stability is itself worth reporting.
 
-## 8 Conclusion **[TBD]**
+## 8 Conclusion
+
+Continuous-treatment DID is routinely run in industry with a normal GPS and a two-step estimator. Under the skewed, heavy-tailed doses typical of delivery times, that procedure is biased and badly overconfident; a cross-fitted doubly robust estimator with a flexible GPS, undersmoothing and subsampling variance inflation restores accuracy and nominal coverage. Wrapping the estimator in an LLM agent is useful only if the agent cannot talk past the assumptions: in our benchmark the same model answered every trap correctly when executable gates stood between it and the conclusion, and only 2 of 12 trap tasks when they did not — whether it used our engine or wrote its own code. On public marketplace data, the gated pipeline declined the intuitive, statistically significant delivery-time effect that the industry estimator reports, because the data contradict parallel trends. The broader lesson is that for causal questions an LLM agent's value lies less in writing the analysis than in being prevented from overstating it.
 
 ---
 
