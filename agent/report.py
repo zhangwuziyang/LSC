@@ -29,8 +29,9 @@ def allowed_numbers(result):
     return nums
 
 
-def render(result, narrative=""):
-    """Markdown report. `narrative` is optional LLM-written text; it is checked too."""
+def render(result, narrative="", extra_allowed=()):
+    """Markdown report. `narrative` is optional LLM-written text; it is checked too.
+    `extra_allowed` are further engine numbers the model was shown (tool outputs)."""
     L = ["# 物流时效对 GMV 的因果影响分析", ""]
     L += ["## 假设检验", "", "| Gate | 结果 | 说明 |", "|---|---|---|"]
     L += [f"| {g.gate} | {STATUS_CN[g.status]} | {g.detail} |" for g in result["gates"]]
@@ -74,4 +75,4 @@ def render(result, narrative=""):
     text = "\n".join(L)
     # Gate details are engine-generated strings; only the body after them is checked.
     body = text.split("## 剂量响应", 1)[1]
-    return text, g5_numbers(body, allowed_numbers(result) + [d0, days])
+    return text, g5_numbers(body, allowed_numbers(result) + [d0, days] + list(extra_allowed))

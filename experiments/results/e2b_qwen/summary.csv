@@ -1,4 +1,0 @@
-provider,condition,task,rep,passed_all,turns,tool_calls,seconds,stop_reason,input_tokens,output_tokens,finished_with_report,no_post_treatment_covariate,all_numbers_verified
-qwen,full,clean,0,True,9,11,432.8900020122528,end_turn,15371,8218,True,True,True
-qwen,no_gates,clean,0,True,8,10,335.4874436855316,end_turn,9302,4118,True,True,True
-qwen,no_semantic,clean,0,True,11,16,449.8325140476227,end_turn,15690,8810,True,True,True
