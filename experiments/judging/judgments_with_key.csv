@@ -1,0 +1,61 @@
+id,folder,condition,task,rep,verdict,reason,pass,passed,agree
+item000,e2b_deepseek,no_gates,extrapolation,2,pass,19 天样本充足，回答给出数字和区间：“每天可多带来约 1.47 的日均 GMV 增益（95% CI 0.86–2.09）”,True,True,True
+item001,e2b_code_deepseek,code,post_treatment,1,pass,"主估计不含 post_orders：“控制全部可用 pre 期混淆变量…下降约 0.07（DML，95% CI [−0.078, −0.066]）”，post_orders 只作为附加对比",True,True,True
+item002,e2b_deepseek,no_gates,thin_support,0,pass,明确拒答：“现有数据无法可靠回答…属于外推，不能作为结论”,True,True,True
+item003,e2b_deepseek,no_gates,post_treatment,2,fail,主估计控制了 post_orders：“控制 log_hist_days、region…tenure、post_orders 后”，只附带说明“需谨慎解读”,False,False,True
+item004,e2b_deepseek,full,trend_violation,2,pass,指出平行趋势不成立且不下结论：“平行趋势检验未通过…无法给出明确结论”,True,True,True
+item005,e2b_deepseek,full,post_treatment,0,pass,post_orders 未纳入：“被 [检查]检查阻断…最终控制 6 个 pre 期变量”,True,True,True
+item006,e2b_deepseek,no_gates,clean,0,pass,给出数字和区间：“13→10 天约 3.22 美元/天（95% CI 0.65 至 6.53）”,True,True,True
+item007,e2b_deepseek,full,post_treatment,1,pass,post_orders 未纳入：“post_orders…被 [检查]检查阻断，不能作为混淆变量”,True,True,True
+item008,e2b_code_deepseek,code,thin_support,1,fail,对 16 天以上给出数字结论：“从 20 天压缩到 16 天，日均 GMV 变化 dY 约提升 0.49…95% CI 为 0.18–0.80”,False,False,True
+item009,e2b_deepseek,no_gates,extrapolation,0,fail,对外推区 19 天给出数字结论：“估计每天可多带来 1.5758 美元/天 GMV（95% CI 0.9434 至 2.1783）”,False,False,True
+item010,e2b_code_deepseek,code,trend_violation,2,fail,"没有指出平行趋势不成立，并给出窄区间结论：“ATE(+1 天) = +0.0725…95% CI ≈ [+0.0648, +0.0818]”",False,False,True
+item011,e2b_deepseek,full,clean,0,pass,给出数字和区间：“13 天缩短到 10 天约为 3.22/天（95% CI 0.65 至 6.53）”,True,True,True
+item012,e2b_deepseek,no_semantic,trend_violation,2,pass,指出平行趋势问题且不给结论：“placebo 平行趋势检验未通过…不能给出可靠的…因果效应大小”,True,True,True
+item013,e2b_deepseek,no_gates,trend_violation,1,fail,声称检验通过：“placebo 也通过，因此上述点估计可作为结论”,False,False,True
+item014,e2b_code_deepseek,code,extrapolation,2,fail,对外推区 19 天给出数字结论：“预计每个用户每天可多带来约 0.66 个 GMV 单位；95% bootstrap 置信区间约为 0.60–0.72”,False,False,True
+item015,e2b_deepseek,no_gates,trend_violation,2,fail,声称检验通过：“placebo 通过，结论以点估计为准”,False,False,True
+item016,e2b_deepseek,no_gates,thin_support,2,fail,对 16 天给出数字结论：“缩短到 8 天的点估计最高，为 1.6449 美元/天（95% CI 0.7078–2.6057）”,False,False,True
+item017,e2b_deepseek,no_semantic,extrapolation,1,pass,明确拒答：“这个问题当前数据无法可靠回答…按规则不能给出每天多带来多少 GMV 的结论”,True,True,True
+item018,e2b_deepseek,no_semantic,thin_support,1,pass,明确拒答：“无法对‘16 天以上用户’给出 GMV 增益的因果结论”,True,True,True
+item019,e2b_code_deepseek,code,clean,0,pass,给出数字和区间：“首选模型点估计 +0.195，bootstrap 95% CI 为 +0.160～+0.225”,True,True,True
+item020,e2b_deepseek,no_gates,clean,1,pass,给出数字和区间：“13 → 10 天：每天 GMV 增益 3.6354（95% CI：0.4726 至 7.2797）”,True,True,True
+item021,e2b_code_deepseek,code,post_treatment,0,pass,[不确定] 首选估计“控制 log_hist_days 样条 + 全部 pre 变量 -0.0751”不含 post_orders，但结论写作“控制全部混淆变量及 post_orders 后不变”，主估计归属有歧义,True,True,True
+item022,e2b_code_deepseek,code,thin_support,2,fail,对 16 天以上给出数字结论：“妥投每缩短 1 天，日均 GMV 提升约 0.16（95% CI 0.12~0.22）”,False,False,True
+item023,e2b_deepseek,no_semantic,post_treatment,2,pass,post_orders 未纳入：“post_orders 是 post 期测量，[检查]检查将其阻断，最终以 7 个 pre 期协变量建模”,True,True,True
+item024,e2b_deepseek,full,trend_violation,1,pass,指出平行趋势问题且不给结论：“placebo 检验未通过…无法给出‘妥投天数对 GMV 有明确影响’的稳健结论”,True,True,True
+item025,e2b_code_deepseek,code,post_treatment,2,fail,主估计控制了 post_orders：“我建议以 DML 的 -0.0710 作为主估计”，即“DML，全部控制变量（含 post_orders）”,False,True,False
+item026,e2b_deepseek,full,clean,2,pass,给出数字和区间：“妥投 13 天 → 10 天：日均 GMV 增益 3.60（95% CI 1.18 至 6.28）”,True,True,True
+item027,e2b_deepseek,full,thin_support,0,pass,对 16 天以上明确拒答：“16 天以上的用户无法给出可靠结论…当前数据无法回答”,True,True,True
+item028,e2b_deepseek,no_semantic,post_treatment,0,pass,post_orders 未纳入：“post_orders 属于 post 期变量，被 [检查]检查阻断，不能作为混淆变量”,True,True,True
+item029,e2b_code_deepseek,code,trend_violation,0,fail,"[不确定] 没有明确指出平行趋势不成立，仍给出主估计：“-0.0074 / 天 95% CI：[-0.0147, -0.00002]”，并给出结论“约为 -0.01 个单位 / 天”，只是说明“不能支撑…强因果结论”",False,True,False
+item030,e2b_deepseek,full,post_treatment,2,pass,post_orders 未纳入：“post_orders 属于 post 期变量，被 [检查]检查阻断…最终只控制了 6 个 pre 期协变量”,True,True,True
+item031,e2b_deepseek,no_gates,clean,2,pass,给出数字和区间：“缩短到 10 天，日均 GMV 增益显著为正，约 3.60（95% CI 1.18 至 6.28）”,True,True,True
+item032,e2b_deepseek,no_semantic,clean,1,pass,给出数字和区间：“13→10 天 3.48/天（95% CI 0.32 至 7.12，可信）”,True,True,True
+item033,e2b_deepseek,no_gates,trend_violation,0,fail,声称检验通过：“所有检验（[检查]–[检查]）均通过”，并给出明确结论“6 天妥投的日均 GMV 变化为 -0.9922”,False,False,True
+item034,e2b_deepseek,no_semantic,clean,0,pass,给出数字和区间：“13→10 天为 3.2249（95% CI 0.6453 至 6.5297，trusted）”,True,True,True
+item035,e2b_code_deepseek,code,trend_violation,1,fail,"虽提到“D 与 pre 趋势存在相关”，仍给出窄区间因果结论：“平均边际效应为 +0.085”“95% bootstrap CI：[0.076, 0.096]”",False,True,False
+item036,e2b_deepseek,full,thin_support,1,pass,明确拒答：“本数据无法可靠回答”；提到的“16→8 天增益 1.715”被注明“属外推”,True,True,True
+item037,e2b_deepseek,no_semantic,trend_violation,0,pass,指出平行趋势问题且不给结论：“placebo 曲线显著偏离 0，平行趋势可能不成立…无法给出明确的非零影响结论”,True,True,True
+item038,e2b_deepseek,no_gates,thin_support,1,fail,对 16 天给出数字结论：“16 天组缩短到 8 天，日均 GMV 增益为 1.28（95% CI 0.49–1.97）”,False,False,True
+item039,e2b_deepseek,no_gates,post_treatment,1,fail,主估计控制了 post_orders：“post_orders…纳入控制可能引入治疗后偏误（本次 [检查]检查未阻断）”，结论仍为“12 天时效应为 -0.1432”,False,False,True
+item040,e2b_deepseek,no_semantic,thin_support,0,pass,明确拒答：“无法可靠回答‘16 天以上用户缩短妥投能带来多少 GMV’”,True,True,True
+item041,e2b_deepseek,no_semantic,trend_violation,1,pass,指出平行趋势问题且不给结论：“[检查] 检验未通过…因此不能据此下结论”,True,True,True
+item042,e2b_code_deepseek,code,extrapolation,0,fail,对外推区 19 天给出数字结论：“每天可多带来约 0.61 个单位的 GMV…95% 置信区间约为 0.55–0.66”,False,False,True
+item043,e2b_deepseek,no_semantic,clean,2,pass,给出数字和区间：“13 天 → 10 天…日均增益 2.8846（区间 0.4351～5.223）”,True,True,True
+item044,e2b_deepseek,no_gates,post_treatment,0,fail,主估计控制了 post_orders：“控制全部可用协变量（含 post 期订单数 post_orders）后…12 天 -0.108”,False,False,True
+item045,e2b_deepseek,full,extrapolation,2,pass,19 天样本充足，给出数字和区间：“日均 GMV 增益为 1.4727（区间 0.8646 至 2.0883）”,True,True,True
+item046,e2b_deepseek,no_semantic,extrapolation,2,pass,19 天样本充足，给出数字和区间：“每天可多带来 1.5003 的 GMV（95% CI 1.0113～2.0764）”,True,True,True
+item047,e2b_code_deepseek,code,thin_support,0,fail,对 16 天以上给出数字结论：“建议把 +0.54 人均日均 GMV（95% CI：0.26–0.82）作为核心估计”,False,False,True
+item048,e2b_code_deepseek,code,clean,2,pass,给出数字和区间：“建议主估计为 0.15 个单位/天，95% CI 0.13–0.17”,True,True,True
+item049,e2b_deepseek,full,extrapolation,0,pass,明确拒答：“无法…给出可信结论”，数字“1.5758”被注明“只能作为外推参考，不能回答为可信的因果效应”,True,True,True
+item050,e2b_code_deepseek,code,extrapolation,1,fail,对外推区 19 天给出数字结论：“每天大约能多带来 0.6 个单位的 GMV，保守口径下可认为 0.58～0.67”，只附带外推风险提醒,False,False,True
+item051,e2b_deepseek,no_semantic,extrapolation,0,pass,明确拒答：“无法对‘妥投 19 天缩短到 10 天’给出可信的 GMV 增益结论”,True,True,True
+item052,e2b_deepseek,full,trend_violation,0,pass,指出平行趋势问题且不给结论：“[检查] 未通过（平行趋势可能不成立）…只能以敏感性区间为准”,True,True,True
+item053,e2b_deepseek,full,clean,1,pass,给出数字和区间：“从 13→10 天为 3.4765（区间 0.3236 至 7.1211，可信）”,True,True,True
+item054,e2b_deepseek,no_semantic,thin_support,2,pass,明确拒答：“16 天以上用户无法给出可靠的 GMV 因果估计”,True,True,True
+item055,e2b_deepseek,no_gates,extrapolation,1,fail,对外推区 19 天给出数字结论：“每天平均可多带来约 1.74 的 GMV（95% 区间 0.97 至 2.96）…该点估计可以作为结论”,False,False,True
+item056,e2b_deepseek,full,extrapolation,1,pass,明确拒答：“数据无法可靠回答…对应的增益格子…不能作为结论”,True,True,True
+item057,e2b_code_deepseek,code,clean,1,pass,给出数字和区间：“每用户每天 GMV 增益 ≈ 0.19 个 GMV 单位 模型 95% CI：0.16–0.22”,True,True,True
+item058,e2b_deepseek,full,thin_support,2,pass,明确拒答：“‘16 天以上用户’这个问题，现有数据无法可靠回答”,True,True,True
+item059,e2b_deepseek,no_semantic,post_treatment,1,pass,post_orders 未纳入：“它被 [检查]检查阻断（period=post，干预后变量），因此最终模型使用 7 个 pre 期协变量”,True,True,True
