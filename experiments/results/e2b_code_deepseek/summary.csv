@@ -13,3 +13,4 @@ deepseek,code,extrapolation,2,False,28,27,987.6805326938628,stop,527477,28938,Tr
 deepseek,code,thin_support,0,False,29,28,541.9546506404877,stop,552048,30770,True,,,False
 deepseek,code,thin_support,1,False,30,29,752.1594784259796,stop,660211,28854,True,,,False
 deepseek,code,thin_support,2,False,28,27,535.5822529792786,stop,535559,27715,True,,,False
+deepseek,code,trend_violation,2,False,30,29,574.265100479126,stop,458579,27683,True,,False,
