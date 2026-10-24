@@ -35,11 +35,26 @@ def run_view(d):
     return NS(final_text=d.get("final_text") or "", trace=d["trace"], session=session)
 
 
+def code_view(d):
+    run = NS(final_text=d.get("final_text") or "", trace=d["trace"])
+    run.code = [e["input"]["code"] for e in d["trace"] if e.get("tool") == "run_python"]
+    return run
+
+
 def main(folders):
+    from agent.code_baseline import grade_code_run
     checks = {t.id: t.checks for t in make_tasks(200)}  # data size is irrelevant for grading
     rows = []
     for folder in folders:
         for f in sorted((RES / folder).glob("*.json")):
+            if f.stem.startswith("code_"):
+                d = json.loads(f.read_text())
+                task, rep = f.stem[5:].rsplit("_", 1)
+                res = grade_code_run(task, code_view(d), set(d.get("extrapolation_days", [])))
+                failed = [k for k, v in res.items() if not v]
+                rows.append(dict(folder=folder, condition="code", task=task, rep=int(rep), passed=not failed,
+                                 failed=",".join(failed), g5_only=False))
+                continue
             cond, task, rep = f.stem.rsplit("_", 2)[0], f.stem.rsplit("_", 2)[1], int(f.stem.rsplit("_", 1)[1])
             for c in ("full", "no_gates", "no_semantic"):
                 if f.stem.startswith(c + "_"):

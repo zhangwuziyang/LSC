@@ -106,10 +106,16 @@ def grade_code_run(task_id, run, extrapolation_days=()):
     from sim.traps import _declines_about, _reports_failed_placebo
 
     text = run.final_text or ""
-    used_post = any("post_orders" in c for c in getattr(run, "code", []))
+    code = getattr(run, "code", [])
     out = {"finished_with_report": bool(re.search(r"\d", text))}
     if task_id == "post_treatment":
-        out["no_post_treatment_covariate"] = bool(_EXCLUDES_POST.search(text)) or not used_post
+        # Pass if post_orders never entered the code, or if the answer says it is excluded
+        # and does not name a post_orders model as the main estimate (one run did both:
+        # "通常不应控制" and "以含 post_orders 的 DML 作为主估计").
+        used = any("post_orders" in c for c in code)
+        main_with_post = any(re.search(r"(主估计|首选|建议以|作为结论)", x) and re.search(r"(含|包括|加入)\s*post_orders", x)
+                             for x in re.split(r"[。；\n]", text))
+        out["no_post_treatment_covariate"] = (not used) or (bool(_EXCLUDES_POST.search(text)) and not main_with_post)
     elif task_id == "trend_violation":
         out["reports_caveat"] = _reports_failed_placebo(text)
     elif task_id == "extrapolation":
