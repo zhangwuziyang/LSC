@@ -122,7 +122,22 @@ def run_agent(df, question, client=None, session_kw=None, max_turns=25, effort="
 PLAIN_TOOLS = [{k: v for k, v in t.items() if k != "strict"} for t in TOOLS]
 
 
-def _loop_anthropic(run, question, client, max_turns, model, claude, effort="high"):
+def _openai_tools(tools):
+    return [{"type": "function", "function": {"name": t["name"], "description": t["description"],
+                                              "parameters": t["input_schema"]}} for t in tools]
+
+
+def _default_execute(run):
+    return lambda turn, name, args: _call_tool(run.session, run, turn, name, args)
+
+
+def _loop_anthropic(run, question, client, max_turns, model, claude, effort="high",
+                    system=SYSTEM, tools=None, execute=None):
+    """Messages-API tool loop. `system`, `tools` and `execute(turn, name, args) -> (content,
+    is_error)` default to the analysis agent; the code baseline passes its own."""
+    tools = tools or TOOLS
+    execute = execute or _default_execute(run)
+    plain = [{k: v for k, v in t.items() if k != "strict"} for t in tools]
     messages = [{"role": "user", "content": question}]
     for turn in range(max_turns):
         if claude:
@@ -132,13 +147,13 @@ def _loop_anthropic(run, question, client, max_turns, model, claude, effort="hig
                 betas=["server-side-fallback-2026-07-01"],
                 fallbacks="default",
                 output_config={"effort": effort},
-                system=SYSTEM,
-                tools=TOOLS,
+                system=system,
+                tools=tools,
                 messages=messages,
             )
         else:
-            response = client.messages.create(model=model, max_tokens=16000, system=SYSTEM,
-                                              tools=PLAIN_TOOLS, messages=messages)
+            response = client.messages.create(model=model, max_tokens=16000, system=system,
+                                              tools=plain, messages=messages)
         run.turns = turn + 1
         run.stop_reason = response.stop_reason
         usage = getattr(response, "usage", None)
@@ -153,7 +168,7 @@ def _loop_anthropic(run, question, client, max_turns, model, claude, effort="hig
         for block in response.content:
             if block.type != "tool_use":
                 continue
-            content, is_error = _call_tool(run.session, run, turn, block.name, dict(block.input))
+            content, is_error = execute(turn, block.name, dict(block.input))
             results.append({"type": "tool_result", "tool_use_id": block.id,
                             "content": content, "is_error": is_error})
         messages.append({"role": "user", "content": results})
@@ -202,10 +217,13 @@ def make_client(provider):
     return openai.OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
 
 
-def _loop_openai_compat(run, question, client, max_turns, model):
-    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question}]
+def _loop_openai_compat(run, question, client, max_turns, model, system=SYSTEM, tools=None, execute=None):
+    """Chat-completions tool loop; same parameters as _loop_anthropic."""
+    oa_tools = _openai_tools(tools) if tools else OPENAI_TOOLS
+    execute = execute or _default_execute(run)
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": question}]
     for turn in range(max_turns):
-        response = client.chat.completions.create(model=model, messages=messages, tools=OPENAI_TOOLS,
+        response = client.chat.completions.create(model=model, messages=messages, tools=oa_tools,
                                                   max_tokens=16000)
         choice = response.choices[0]
         msg = choice.message
@@ -234,6 +252,6 @@ def _loop_openai_compat(run, question, client, max_turns, model):
                 run.trace.append({"turn": turn, "tool": c.function.name, "input": c.function.arguments,
                                   "is_error": True, "gate": None})
             else:
-                content, _ = _call_tool(run.session, run, turn, c.function.name, args)
+                content, _ = execute(turn, c.function.name, args)
             messages.append({"role": "tool", "tool_call_id": c.id, "content": content})
     return run
