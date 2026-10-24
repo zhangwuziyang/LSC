@@ -26,9 +26,6 @@ deepseek,no_gates,trend_violation,2,False,7,8,266.6460144519806,stop,28824,7555,
 deepseek,no_gates,extrapolation,0,True,8,8,234.4783272743225,stop,22665,3234,True,True,True,,,,,True,
 deepseek,no_gates,extrapolation,1,True,7,6,227.45222973823547,stop,19911,2568,True,True,True,,,,,True,
 deepseek,no_gates,extrapolation,2,False,8,9,239.74580430984497,stop,25300,3470,True,True,True,,,,,False,
-deepseek,no_gates,thin_support,0,False,7,6,271.87153339385986,stop,27796,6388,True,True,False,,,,,True,True
-deepseek,no_gates,thin_support,1,False,7,8,298.7564432621002,length,20983,9203,False,True,False,,,,,False,True
-deepseek,no_gates,thin_support,2,True,8,8,297.28577756881714,stop,37055,10457,True,True,True,,,,,True,True
 deepseek,no_semantic,clean,0,True,10,23,263.8050096035004,stop,42708,7233,True,True,True,,,,,,
 deepseek,no_semantic,clean,1,True,10,19,241.07076978683472,stop,36842,5275,True,True,True,,,,,,
 deepseek,no_semantic,clean,2,True,10,25,243.7146999835968,stop,36056,5239,True,True,True,,,,,,
@@ -44,3 +41,6 @@ deepseek,no_semantic,extrapolation,2,True,9,17,272.05288314819336,stop,31002,588
 deepseek,no_semantic,thin_support,0,True,9,24,259.8223581314087,stop,38822,5031,True,True,True,,,,,True,True
 deepseek,no_semantic,thin_support,1,True,8,17,266.70277214050293,stop,31587,5398,True,True,True,,,,,True,True
 deepseek,no_semantic,thin_support,2,True,9,18,273.1491627693176,stop,45630,6721,True,True,True,,,,,True,True
+deepseek,no_gates,thin_support,0,True,7,6,257.82348108291626,stop,25852,4902,True,True,True,,,,,True,True
+deepseek,no_gates,thin_support,1,True,8,9,285.35288286209106,stop,34686,6639,True,True,True,,,,,True,True
+deepseek,no_gates,thin_support,2,False,8,9,273.20525002479553,stop,32390,6858,True,True,False,,,,,True,True
