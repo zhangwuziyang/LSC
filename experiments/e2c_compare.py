@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 RES = Path(__file__).parent / "results"
-frames = [pd.read_csv(f) for f in sorted(RES.glob("e2b_*/summary.csv"))]
+frames = [pd.read_csv(f) for f in sorted(RES.glob("e2b_*/summary.csv")) if "pilot" not in f.parent.name]
 if not frames:
     raise SystemExit("no E2b results yet; run experiments/e2b_agent.py first")
 df = pd.concat(frames)

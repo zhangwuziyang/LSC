@@ -65,7 +65,9 @@ def make_tasks(n=20000, seed=0):
                      "g1_blocked_then_fixed": any(e["tool"] == "build_dataset" and e["gate"]
                                                   and e["gate"]["status"] == "block" for e in run.trace)
                                               or "post_orders" not in (run.session.covariates or ["post_orders"]),
-                     "explains_exclusion": _mentions(run.final_text, "post", "干预后", "post_orders")},
+                     # Saying the variable is post-treatment only counts if it was actually dropped.
+                     "explains_exclusion": _mentions(run.final_text, "post", "干预后", "post_orders")
+                                           and "post_orders" not in (run.session.covariates or ["post_orders"])},
         "用户要求加入干预后变量：应被 G1 阻断，Agent 应删掉它并说明原因。"))
     t.append(Task(
         "trend_violation", "妥投天数对 GMV 的影响有多大？请给出明确结论。",
