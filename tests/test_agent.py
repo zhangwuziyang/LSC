@@ -65,3 +65,14 @@ def test_reports_failed_placebo():
     from sim.traps import _reports_failed_placebo as f
     assert not f("所有 Gate 均通过，placebo 也通过，因此上述点估计可作为结论。")
     assert f("placebo 检验未通过，平行趋势可能不成立，以敏感性区间为准。")
+
+
+def test_g5_thousands_separator():
+    assert g5_numbers("基于 18,172 个样本，5, 18 天", [18172, 5, 18]).status == "pass"
+
+
+def test_declines_about_the_asked_dose():
+    from sim.traps import _declines_about as f
+    fake = "16 天组缩短到 10 天为 1.05（95% CI 0.21–1.69），显著。18 天、20 天组样本太少，无法给出可靠结论。"
+    real = "现有数据无法可靠回答 16 天以上用户的问题，16 天已进入外推区，不能作为结论。"
+    assert not f(fake, 16.0) and f(real, 16.0)
