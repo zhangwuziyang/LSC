@@ -53,3 +53,15 @@ def test_g5_accepts_numbers_from_any_tool_output():
     s.run_placebo()
     text = f"p90 为 {q['p90']}，加权后相关 {bal[0]['corr_weighted']}，加权前 {bal[0]['corr_raw']}。"
     assert s.render_report(text)["gate"]["status"] == "pass"
+
+
+def test_g5_sign_dropped_and_percentile_labels():
+    allowed = [-0.7457, 15.72]
+    assert g5_numbers("比 10 天低 0.7457 美元/天，99 分位只有 15.72 天", allowed + [10]).status == "pass"
+    assert g5_numbers("CI 宽度 8.75 天", allowed).status == "block"   # derived by the model
+
+
+def test_reports_failed_placebo():
+    from sim.traps import _reports_failed_placebo as f
+    assert not f("所有 Gate 均通过，placebo 也通过，因此上述点估计可作为结论。")
+    assert f("placebo 检验未通过，平行趋势可能不成立，以敏感性区间为准。")

@@ -57,15 +57,21 @@ def g4_placebo(passed, max_dev):
 
 _NUM = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?")
 # Models often write minus as U+2212 or the full-width U+FF0D; read both as "-".
+_PERCENTILE = re.compile(r"\d{1,2}\s*%?\s*分位(数|点)?")
 _MINUS = str.maketrans({"\u2212": "-", "\uff0d": "-"})
 
 
 def g5_numbers(text, allowed, rel_tol=0.005):
     """Every number in `text` must match a number the engine produced (or a whitelisted
-    constant such as dates and thresholds), up to display rounding."""
-    allowed = np.asarray(sorted(set(float(a) for a in allowed)))
+    constant such as dates and thresholds), up to display rounding.
+
+    A number may also appear without its sign ("低 0.7457" for -0.7457), and percentile
+    labels ("99 分位", "P90") are not numbers to check. Numbers the model derives itself,
+    such as a CI width, are still rejected: the model does not compute."""
+    allowed = np.asarray(sorted(set(float(a) for a in allowed) | {abs(float(a)) for a in allowed}))
+    text = _PERCENTILE.sub(" ", text.translate(_MINUS))
     unmatched = []
-    for tok in _NUM.findall(text.translate(_MINUS)):
+    for tok in _NUM.findall(text):
         v = float(tok)
         decimals = len(tok.split(".")[1]) if "." in tok else 0
         tol = max(0.5 * 10 ** -decimals, rel_tol * abs(v))
