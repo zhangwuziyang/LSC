@@ -7,7 +7,7 @@ dependencies = ["numpy", "pandas", "scipy", "scikit-learn", "lightgbm", "pyyaml"
 
 [project.optional-dependencies]
 dev = ["pytest", "matplotlib", "tabulate"]
-agent = ["anthropic", "openai"]
+agent = ["anthropic", "openai", "statsmodels"]
 
 [build-system]
 requires = ["setuptools>=61"]

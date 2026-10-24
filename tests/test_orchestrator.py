@@ -188,3 +188,24 @@ def test_code_baseline_runs_code_in_a_sandbox_without_keys(monkeypatch):
     assert run.trace[0]["output"].startswith("500 True None")   # data present, key absent
     checks = grade_code_run("post_treatment", run)
     assert checks == {"finished_with_report": True, "no_post_treatment_covariate": True}
+
+
+def test_code_baseline_forces_a_final_answer():
+    from agent.code_baseline import run_code_baseline
+    task = make_tasks(300)[0]
+    seen = []
+
+    class Endless(FakeOpenAIClient):
+        def _create(self, **kw):
+            seen.append(kw.get("tool_choice"))
+            if kw.get("tool_choice") == "none":
+                assert kw["messages"][-1]["role"] == "user"
+                return NS(choices=[NS(message=NS(content="结论：效应约为 0.18。", tool_calls=None,
+                                                reasoning_content=None), finish_reason="stop")], usage=None)
+            call = NS(id=f"c{len(seen)}", type="function", function=NS(name="run_python", arguments='{"code": "print(1)"}'))
+            return NS(choices=[NS(message=NS(content="", tool_calls=[call], reasoning_content=None),
+                                  finish_reason="tool_calls")], usage=None)
+
+    run = run_code_baseline(task.df, task.question, provider="deepseek", client=Endless([]), max_turns=6)
+    assert seen[-1] == "none" and run.final_text.startswith("结论") and len(run.code) == 5
+    assert any("还剩 1 次" in e["output"] for e in run.trace)

@@ -18,18 +18,19 @@ from .semantic import SemanticLayer
 
 SYSTEM_CODE = """你是一名数据分析师，负责回答"物流妥投天数对用户 GMV 的影响"这类因果问题。
 数据在当前目录的 data.csv。你可以用 run_python 工具执行 Python 代码（pandas、numpy、scipy、
-scikit-learn、lightgbm 可用），代码的标准输出会返回给你；每次执行都是新的进程，需要重新读取数据。
-你可以使用任何你认为合适的方法。分析完成后，不再调用工具，直接用中文给出结论，包括具体数字及其不确定性。
+scikit-learn、lightgbm、statsmodels 可用），代码的标准输出会返回给你；每次执行都是新的进程，需要重新读取数据。
+你可以使用任何你认为合适的方法。你最多可以调用 {budget} 次工具，请合理安排；分析完成后不再调用工具，
+直接用中文给出结论，包括具体数字及其不确定性。
 
 数据字典（列名｜含义｜测量时期）：
 {dictionary}"""
 
-TOOL = [{"name": "run_python", "description": "执行一段 Python 代码，返回标准输出和标准错误（最多 8000 字符）。",
+TOOL = [{"name": "run_python", "description": "执行一段 Python 代码，返回标准输出和标准错误（最多 4000 字符）。",
          "input_schema": {"type": "object", "properties": {"code": {"type": "string"}},
                           "required": ["code"], "additionalProperties": False}}]
 
 TIMEOUT = 300
-MAX_OUT = 8000
+MAX_OUT = 4000
 
 
 def data_dictionary(df, semantic):
@@ -65,11 +66,11 @@ class Sandbox:
 
 
 def run_code_baseline(df, question, provider="deepseek", client=None, model=None, semantic=None,
-                      max_turns=25):
+                      max_turns=30):
     semantic = semantic or SemanticLayer()
     data = df[[c for c in df.columns if c in semantic.by_column]]
     box = Sandbox(data)
-    system = SYSTEM_CODE.format(dictionary=data_dictionary(data, semantic))
+    system = SYSTEM_CODE.format(dictionary=data_dictionary(data, semantic), budget=max_turns - 1)
     run = AgentRun(final_text="")
     run.code = []
 
@@ -78,6 +79,9 @@ def run_code_baseline(df, question, provider="deepseek", client=None, model=None
             return json.dumps({"error": "only run_python(code) is available"}), True
         out, ok = box.run(args["code"])
         run.code.append(args["code"])
+        left = max_turns - 2 - turn
+        if 0 < left <= 3:
+            out += f"\n\n[提示] 你还剩 {left} 次工具调用，请准备给出结论。"
         run.trace.append({"turn": turn, "tool": name, "input": {"code": args["code"][:4000]},
                           "is_error": not ok, "output": out[:2000]})
         return out, not ok
@@ -86,9 +90,9 @@ def run_code_baseline(df, question, provider="deepseek", client=None, model=None
     client = client or make_client(provider)
     if cfg["style"] == "anthropic":
         return _loop_anthropic(run, question, client, max_turns, model or cfg["model"], claude=False,
-                               system=system, tools=TOOL, execute=execute)
+                               system=system, tools=TOOL, execute=execute, force_final=True)
     return _loop_openai_compat(run, question, client, max_turns, model or cfg["model"],
-                               system=system, tools=TOOL, execute=execute)
+                               system=system, tools=TOOL, execute=execute, force_final=True)
 
 
 # ---- grading ---------------------------------------------------------------------------
