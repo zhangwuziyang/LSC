@@ -116,3 +116,37 @@ class HeteroGBMGPS:
 
     def density(self, X, d):
         return self.density_from_params(self.params(X), d)
+
+
+# Regularization presets for HeteroGBMGPS. The default was tuned on n = 20,000; smaller
+# samples need stronger regularization (on the n ~ 5,000 Olist panel the default put
+# weight 704 on a single unit). `select_gps` picks a preset by cross-fitted log-likelihood.
+GPS_PRESETS = {
+    "default": dict(),
+    "strong": dict(mean_kw=dict(n_estimators=150, num_leaves=7, min_child_samples=200),
+                   scale_kw=dict(n_estimators=80, num_leaves=4, min_child_samples=400)),
+    "very_strong": dict(mean_kw=dict(n_estimators=80, num_leaves=4, min_child_samples=300),
+                        scale_kw=dict(n_estimators=40, num_leaves=3, min_child_samples=500)),
+}
+
+
+def select_gps(X, D, groups=None, presets=GPS_PRESETS, n_folds=5, seed=0):
+    """Choose a HeteroGBMGPS preset by cross-fitted mean log density of the observed doses.
+    Returns (factory, {preset: log-likelihood})."""
+    from sklearn.model_selection import GroupKFold
+
+    X, D = np.asarray(X, float), np.asarray(D, float)
+    if groups is None:
+        folds = list(KFold(n_folds, shuffle=True, random_state=seed).split(X))
+    else:
+        folds = list(GroupKFold(n_folds, shuffle=True, random_state=seed).split(X, groups=groups))
+    scores = {}
+    for name, kw in presets.items():
+        pi = np.empty(len(D))
+        for tr, te in folds:
+            pi[te] = HeteroGBMGPS(seed=seed, **kw).fit(X[tr], D[tr]).density(X[te], D[te])
+        scores[name] = float(np.mean(np.log(np.maximum(pi, 1e-300))))
+    best = max(scores, key=scores.get)
+    factory = lambda: HeteroGBMGPS(seed=seed, **presets[best])
+    factory.__name__ = f"HeteroGBMGPS[{best}]"
+    return factory, scores

@@ -206,7 +206,7 @@ def _loop_openai_compat(run, question, client, max_turns, model):
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question}]
     for turn in range(max_turns):
         response = client.chat.completions.create(model=model, messages=messages, tools=OPENAI_TOOLS,
-                                                  max_tokens=8000)
+                                                  max_tokens=16000)
         choice = response.choices[0]
         msg = choice.message
         run.turns = turn + 1

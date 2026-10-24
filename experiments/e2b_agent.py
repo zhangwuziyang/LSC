@@ -37,6 +37,8 @@ def main():
     ap.add_argument("--effort", default="high", help="Claude only")
     ap.add_argument("--provider", choices=["anthropic", "deepseek", "qwen"], default="anthropic")
     ap.add_argument("--model", default=None, help="override the provider's default model")
+    ap.add_argument("--skip-done", action="store_true",
+                    help="skip (condition, task, rep) runs that already have a successful row in summary.csv")
     args = ap.parse_args()
     out_dir = Path(__file__).parent / "results" / f"e2b_{args.provider}"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -45,10 +47,23 @@ def main():
     # Append to earlier runs; a (condition, task, rep) that is run again replaces the old row.
     summary = out_dir / "summary.csv"
     prev = pd.read_csv(summary) if summary.exists() else pd.DataFrame()
+    done = set()
+    if args.skip_done and len(prev):
+        ok = prev[~prev.stop_reason.astype(str).str.startswith("error")]
+        done = set(zip(ok.condition, ok.task, ok.rep))
     rows = []
+
+    def save():
+        df = pd.concat([prev, pd.DataFrame(rows)]).drop_duplicates(["condition", "task", "rep"], keep="last")
+        df.to_csv(summary, index=False)
+        return df
+
+    df = prev
     for cond in args.conditions:
         for task in tasks:
             for rep in range(args.reps):
+                if (cond, task.id, rep) in done:
+                    continue
                 t0 = time.time()
                 try:
                     run = run_agent(task.df, task.question, session_kw=dict(seed=rep, **CONDITIONS[cond]),
@@ -58,6 +73,7 @@ def main():
                     rows.append(dict(provider=args.provider, condition=cond, task=task.id, rep=rep,
                                      passed_all=False, stop_reason=f"error: {type(e).__name__}",
                                      seconds=time.time() - t0))
+                    df = save()
                     continue
                 checks = task.checks(run)
                 rows.append(dict(provider=args.provider, condition=cond, task=task.id, rep=rep, passed_all=all(checks.values()),
@@ -68,10 +84,9 @@ def main():
                     dict(final_text=run.final_text, trace=run.trace, checks=checks,
                          report=run.session.report), ensure_ascii=False, indent=1, default=str))
                 print(rows[-1], flush=True)
-                df = pd.concat([prev, pd.DataFrame(rows)]).drop_duplicates(
-                    ["condition", "task", "rep"], keep="last")
-                df.to_csv(summary, index=False)
-    print(df.groupby(["condition", "task"])["passed_all"].mean().unstack().round(2))
+                df = save()
+    if len(df):
+        print(df.groupby(["condition", "task"])["passed_all"].mean().unstack().round(2))
 
 
 if __name__ == "__main__":

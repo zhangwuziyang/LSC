@@ -36,6 +36,9 @@ class AnalysisSession:
         self.ess_thresholds = ess_thresholds
         self.kw = dict(seed=seed, **(estimator_kw or {}))
         self.seed = seed
+        clusters = self.semantic.columns("cluster")
+        if clusters:  # rows of one cluster (e.g. a seller in several months) are resampled together
+            self.kw["groups"] = df[clusters[0]].to_numpy()
         self.treat = self.semantic.columns("treatment")[0]
         self.outcome = self.semantic.columns("outcome")[0]
         self.placebo = self.semantic.columns("placebo_outcome")[0]

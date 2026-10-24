@@ -1,0 +1,296 @@
+{
+ "final_text": "结论总结：由于 **placebo 平行趋势检验未通过**（且 G2 平衡、G3 重叠均降级），本次分析不能给出可靠的妥投天数对 GMV 的非零因果效应大小。以敏感性区间为准，相对 10 天参照的 6–9 天、11–13 天各可信剂量点区间全部包含 0，说明在考虑潜在混淆后，效应无法与 0 显著区分。完整报告见上。",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "list_metrics",
+   "input": {},
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "D"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "dY"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "dY_placebo"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "妥投天数"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "GMV"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "log_hist_days"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "region"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "log_pre_gmv"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "orders"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "cat_share"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "tenure"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "tier"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "post_orders"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "build_dataset",
+   "input": {
+    "covariates": [
+     "log_hist_days",
+     "region",
+     "log_pre_gmv",
+     "orders",
+     "cat_share",
+     "tenure",
+     "tier"
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G1 时序",
+    "status": "pass",
+    "detail": "7 个协变量均为 pre 期变量"
+   },
+   "gate_true": {
+    "gate": "G1 时序",
+    "status": "pass",
+    "detail": "7 个协变量均为 pre 期变量"
+   }
+  },
+  {
+   "turn": 4,
+   "tool": "fit_gps",
+   "input": {},
+   "is_error": false,
+   "gate": {
+    "gate": "G2 平衡",
+    "status": "degrade",
+    "detail": "加权后 X 与 D 的最大绝对相关为 0.319（log_hist_days），加权前为 0.642，阈值 0.25"
+   },
+   "gate_true": {
+    "gate": "G2 平衡",
+    "status": "degrade",
+    "detail": "加权后 X 与 D 的最大绝对相关为 0.319（log_hist_days），加权前为 0.642，阈值 0.25"
+   }
+  },
+  {
+   "turn": 5,
+   "tool": "estimate_dose_response",
+   "input": {
+    "from_days": [
+     10
+    ],
+    "to_days": [
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     14,
+     16,
+     20
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G3 重叠",
+    "status": "degrade",
+    "detail": "7 个剂量点有效样本量不足（5, 17, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论"
+   },
+   "gate_true": {
+    "gate": "G3 重叠",
+    "status": "degrade",
+    "detail": "7 个剂量点有效样本量不足（5, 17, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论"
+   }
+  },
+  {
+   "turn": 6,
+   "tool": "run_placebo",
+   "input": {},
+   "is_error": false,
+   "gate": {
+    "gate": "G4 Placebo",
+    "status": "degrade",
+    "detail": "placebo 曲线显著偏离 0（最大偏离 1.157），平行趋势可能不成立，只报告敏感性区间"
+   },
+   "gate_true": {
+    "gate": "G4 Placebo",
+    "status": "degrade",
+    "detail": "placebo 曲线显著偏离 0（最大偏离 1.157），平行趋势可能不成立，只报告敏感性区间"
+   }
+  },
+  {
+   "turn": 7,
+   "tool": "render_report",
+   "input": {
+    "narrative": "G2 平衡降级：加权后 log_hist_days 与 D 的最大绝对相关为 0.319，高于阈值 0.25，混淆调整不完全。G3 重叠降级：5、17、18、18.5、19、19.5、20 天等 7 个剂量点有效样本量不足，仅作外推参考，不进入结论。G4 placebo 未通过：placebo 曲线最大偏离 1.157，平行趋势可能不成立，因此不以点估计下结论，改以敏感性区间为准。相对 10 天参照，可信剂量点的敏感性区间为：6 天 [-2.1409, 0.2308]、7 天 [-1.6387, 0.1834]、8 天 [-1.1246, 0.1471]、9 天 [-0.5786, 0.1007]、11 天 [-0.0744, 0.3691]、12 天 [-0.1359, 0.6716]、13 天 [-0.2253, 0.9094]，这些区间均包含 0。因此，在考虑潜在混淆后，妥投天数对 GMV 的影响无法与 0 显著区分，不能给出可靠的非零效应大小。"
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G5 数字核对",
+    "status": "block",
+    "detail": "报告中有 1 个数字在引擎输出中找不到：['1.157']"
+   },
+   "gate_true": {
+    "gate": "G5 数字核对",
+    "status": "block",
+    "detail": "报告中有 1 个数字在引擎输出中找不到：['1.157']"
+   }
+  },
+  {
+   "turn": 8,
+   "tool": "render_report",
+   "input": {
+    "narrative": "G2 平衡降级：加权后 log_hist_days 与 D 的最大绝对相关为 0.319，高于阈值 0.25，混淆调整不完全。G3 重叠降级：5、17、18、18.5、19、19.5、20 天等 7 个剂量点有效样本量不足，仅作外推参考，不进入结论。G4 placebo 未通过：placebo 曲线显著偏离 0，平行趋势可能不成立，因此不以点估计下结论，改以敏感性区间为准。相对 10 天参照，可信剂量点的敏感性区间为：6 天 [-2.1409, 0.2308]、7 天 [-1.6387, 0.1834]、8 天 [-1.1246, 0.1471]、9 天 [-0.5786, 0.1007]、11 天 [-0.0744, 0.3691]、12 天 [-0.1359, 0.6716]、13 天 [-0.2253, 0.9094]，这些区间均包含 0。因此，在考虑潜在混淆后，妥投天数对 GMV 的影响无法与 0 显著区分，不能给出可靠的非零效应大小。"
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   },
+   "gate_true": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   }
+  },
+  {
+   "turn": 9,
+   "tool": "render_report",
+   "input": {
+    "narrative": "G2 平衡降级：加权后 log_hist_days 与 D 的最大绝对相关为 0.319，高于阈值 0.25，混淆调整不完全。G3 重叠降级：5、17、18、18.5、19、19.5、20 天等 7 个剂量点有效样本量不足，仅作外推参考，不进入结论。G4 placebo 未通过：placebo 曲线显著偏离 0，平行趋势可能不成立，因此不以点估计下结论，改以敏感性区间为准。相对 10 天参照，可信剂量点的敏感性区间为：6 天 [-2.1409, 0.2308]、7 天 [-1.6387, 0.1834]、8 天 [-1.1246, 0.1471]、9 天 [-0.5786, 0.1007]、11 天 [-0.0744, 0.3691]、12 天 [-0.1359, 0.6716]、13 天 [-0.2253, 0.9094]，这些区间均包含 0。因此，在考虑潜在混淆后，妥投天数对 GMV 的影响无法与 0 显著区分，不能给出可靠的非零效应大小。"
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   },
+   "gate_true": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   }
+  }
+ ],
+ "checks": {
+  "finished_with_report": true,
+  "no_post_treatment_covariate": true,
+  "all_numbers_verified": true,
+  "placebo_failed": true,
+  "reports_caveat": true
+ },
+ "report": "# 物流时效对 GMV 的因果影响分析\n\n## 假设检验\n\n| Gate | 结果 | 说明 |\n|---|---|---|\n| G1 时序 | 通过 | 7 个协变量均为 pre 期变量 |\n| G2 平衡 | 降级 | 加权后 X 与 D 的最大绝对相关为 0.319（log_hist_days），加权前为 0.642，阈值 0.25 |\n| G3 重叠 | 降级 | 7 个剂量点有效样本量不足（5, 17, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论 |\n| G4 Placebo | 降级 | placebo 曲线显著偏离 0（最大偏离 1.157），平行趋势可能不成立，只报告敏感性区间 |\n\n## 剂量响应\n\n相对 10 天的日均 GMV 变化 θ(10, d)，95% 置信区间，样本量 20000。\n\n| 妥投天数 | θ | 95% CI | 可信度 | 敏感性区间 (M=1) |\n|---|---|---|---|---|\n| 5 | -1.162 | [-1.613, -0.653] | 外推 | [-3.012, 0.688] |\n| 6 | -0.955 | [-1.188, -0.695] | 可信 | [-2.141, 0.231] |\n| 7 | -0.728 | [-0.910, -0.557] | 可信 | [-1.639, 0.183] |\n| 8 | -0.489 | [-0.589, -0.382] | 可信 | [-1.125, 0.147] |\n| 9 | -0.239 | [-0.346, -0.160] | 可信 | [-0.579, 0.101] |\n| 11 | 0.147 | [0.075, 0.224] | 可信 | [-0.074, 0.369] |\n| 12 | 0.268 | [0.172, 0.394] | 可信 | [-0.136, 0.672] |\n| 13 | 0.342 | [0.213, 0.510] | 可信 | [-0.225, 0.909] |\n| 14 | 0.231 | [-0.151, 0.490] | 谨慎 | [-0.527, 0.988] |\n| 15 | -0.121 | [-1.125, 0.391] | 谨慎 | [-1.080, 0.837] |\n| 16 | -0.122 | [-0.773, 0.335] | 谨慎 | [-0.933, 0.689] |\n| 17 | 0.065 | [-0.258, 0.318] | 外推 | [-0.836, 0.966] |\n| 18 | 0.171 | [-0.392, 0.577] | 外推 | [-1.053, 1.395] |\n| 19 | -0.024 | [-1.031, 0.619] | 外推 | [-1.473, 1.425] |\n| 20 | -0.599 | [-2.133, 0.248] | 外推 | [-2.322, 1.125] |\n\n拐点估计为 11.75 天，95% CI [10.74, 13.00]。\n\n## 增益矩阵\n\n把当前妥投 a 天的用户缩短到 b 天，带来的日均 GMV 增益（post 期按 76 天折算）。外推格子不进入结论。\n\n| a → b | 人数 | 日均增益 | 95% CI | 可信度 |\n|---|---|---|---|---|\n| 10 → 6 | 2188 | -27.50 | [-34.20, -20.00] | 可信 |\n| 10 → 7 | 2188 | -20.95 | [-26.21, -16.04] | 可信 |\n| 10 → 8 | 2188 | -14.07 | [-16.96, -11.00] | 可信 |\n| 10 → 9 | 2188 | -6.88 | [-9.97, -4.62] | 可信 |\n\n**注意：placebo 检验未通过，上述点估计可能有偏，结论以敏感性区间为准。**\n\n## 解读\n\nG2 平衡降级：加权后 log_hist_days 与 D 的最大绝对相关为 0.319，高于阈值 0.25，混淆调整不完全。G3 重叠降级：5、17、18、18.5、19、19.5、20 天等 7 个剂量点有效样本量不足，仅作外推参考，不进入结论。G4 placebo 未通过：placebo 曲线显著偏离 0，平行趋势可能不成立，因此不以点估计下结论，改以敏感性区间为准。相对 10 天参照，可信剂量点的敏感性区间为：6 天 [-2.1409, 0.2308]、7 天 [-1.6387, 0.1834]、8 天 [-1.1246, 0.1471]、9 天 [-0.5786, 0.1007]、11 天 [-0.0744, 0.3691]、12 天 [-0.1359, 0.6716]、13 天 [-0.2253, 0.9094]，这些区间均包含 0。因此，在考虑潜在混淆后，妥投天数对 GMV 的影响无法与 0 显著区分，不能给出可靠的非零效应大小。"
+}

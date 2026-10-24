@@ -1,0 +1,24 @@
+# Semantic layer for the Olist seller panel (cases/olist.py). Outcomes are daily averages,
+# so gains need no division by window length (days = 1).
+metrics:
+  - {id: "T1", name: "卖家当月平均妥投天数", column: "D", role: "treatment", period: "treatment", unit: "天",
+     definition: "卖家在处理月 T 内已妥投订单从下单到妥投的平均天数", aliases: ["妥投时效", "delivery days"]}
+  - {id: "Y1", name: "卖家日均 GMV 变化", column: "dY", role: "outcome", period: "post", unit: "雷亚尔/天",
+     definition: "T+1..T+3 日均 GMV 减 T-3..T-1 日均 GMV（1%/99% 缩尾）", aliases: ["GMV 变化"]}
+  - {id: "Y0", name: "placebo 日均 GMV 变化", column: "dY_placebo", role: "placebo_outcome", period: "pre",
+     definition: "T-1 日均 GMV 减 T-3..T-2 日均 GMV"}
+  - {id: "C1", name: "卖家 ID", column: "seller_id", role: "cluster", period: "pre",
+     definition: "同一卖家会在多个处理月出现，重抽样按卖家进行"}
+  - {id: "X1", name: "pre1 日均 GMV（对数）", column: "log_pre_gmv", role: "covariate", period: "pre"}
+  - {id: "X2", name: "pre1 订单数", column: "pre_orders", role: "covariate", period: "pre"}
+  - {id: "X3", name: "pre1 平均妥投天数", column: "pre_days", role: "covariate", period: "pre"}
+  - {id: "X4", name: "pre1 是否有妥投记录", column: "has_pre_days", role: "covariate", period: "pre"}
+  - {id: "X5", name: "pre1 同州订单占比", column: "pre_same_state", role: "covariate", period: "pre"}
+  - {id: "X6", name: "pre1 平均商品价格", column: "pre_price", role: "covariate", period: "pre"}
+  - {id: "X7", name: "pre1 运费占比", column: "pre_freight_ratio", role: "covariate", period: "pre"}
+  - {id: "X8", name: "卖家所在州", column: "seller_state", role: "covariate", period: "pre"}
+  - {id: "X9", name: "主营品类", column: "category", role: "covariate", period: "pre"}
+  - {id: "X10", name: "开店月数", column: "tenure_months", role: "covariate", period: "pre"}
+  - {id: "X11", name: "处理月序号", column: "month_index", role: "covariate", period: "pre"}
+  - {id: "X12", name: "处理月订单数", column: "orders_T", role: "covariate", period: "treatment",
+     definition: "处理期变量，不能作为混淆变量"}
