@@ -27,7 +27,7 @@ _MASK = [(re.compile(r"G[1-5]\s*(时序|平衡|重叠|Placebo|placebo|数字核�
          (re.compile(r"（检查已关闭）|检查已关闭|形式通过"), "[…]"),
          (re.compile(r"render_report|run_python|build_dataset|fit_gps|estimate_dose_response|run_placebo|"
                      r"lookup_metric|list_metrics"), "[工具]"),
-         (re.compile(r"(完整)?报告(已)?(见上方|见上|附后|如下)[^。\n]*"), "[…]"),
+         (re.compile(r"(完整)?报告(已)?(生成)?[，,（(]?\s*(详)?(见上方|见上|附后|如下)[^。\n]*"), "[…]"),
          (re.compile(r"报告已通过全部(核验|校验)[^。\n]*"), "[…]")]
 
 
