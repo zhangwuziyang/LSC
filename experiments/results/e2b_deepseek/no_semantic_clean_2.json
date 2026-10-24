@@ -1,0 +1,310 @@
+{
+ "final_text": "分析完成。结论如下：\n\n把妥投天数缩短到 10 天，每天 GMV 增益中，只有 **13 天 → 10 天** 是可信且显著的：日均增益 **2.8846**（区间 0.4351～5.223）。**12 天 → 10 天** 的日均增益为 1.0794（区间 -4.8898～5.04）、**14 天 → 10 天** 为 4.4694（区间 -0.6101～12.8705），但两者可信度均为「谨慎」且区间包含 0，不能下因果结论。\n\n需要注意：G3 重叠降级（部分剂量点仅作外推参考），拐点区间 7.0–14.5 天宽于 3 天，因此不对拐点下结论。\n\n报告如下（已通过 G5 核对）：\n\n> # 物流时效对 GMV 的因果影响分析\n>\n> ## 假设检验\n>\n> | Gate | 结果 | 说明 |\n> |---|---|---|\n> | G1 时序 | 通过 | 7 个协变量均为 pre 期变量 |\n> | G2 平衡 | 通过 | 加权后 X 与 D 的最大绝对相关为 0.143（region），加权前为 0.635，阈值 0.25 |\n> | G3 重叠 | 降级 | 9 个剂量点有效样本量不足（5, 14.5, 15, 15.5, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论 |\n> | G4 Placebo | 通过 | placebo 曲线的一致置信带覆盖 0（最大偏离 0.444） |\n>\n> ## 剂量响应\n>\n> 相对 10 天的日均 GMV 变化 θ(10, d)，95% 置信区间，样本量 20000。\n>\n> | 妥投天数 | θ | 95% CI | 可信度 |\n> |---|---|---|---|\n> | 5 | 0.154 | [-0.300, 0.734] | 外推 |\n> | 6 | -0.072 | [-0.455, 0.240] | 谨慎 |\n> | 7 | 0.075 | [-0.112, 0.284] | 可信 |\n> | 8 | 0.076 | [-0.057, 0.212] | 可信 |\n> | 9 | 0.058 | [-0.085, 0.195] | 可信 |\n> | 11 | -0.122 | [-0.308, 0.035] | 可信 |\n> | 12 | -0.054 | [-0.252, 0.244] | 谨慎 |\n> | 13 | -0.197 | [-0.357, -0.030] | 可信 |\n> | 14 | -0.355 | [-1.023, 0.048] | 谨慎 |\n> | 15 | -0.203 | [-0.515, 0.123] | 外推 |\n> | 16 | -0.349 | [-0.556, -0.136] | 谨慎 |\n> | 17 | -0.434 | [-0.610, -0.258] | 谨慎 |\n> | 18 | -0.398 | [-0.574, -0.220] | 外推 |\n> | 19 | -0.529 | [-0.796, -0.303] | 外推 |\n> | 20 | -2.149 | [-6.746, -0.313] | 外推 |\n>\n> 拐点的 95% CI 为 [7.00, 14.50]，宽于 3 天，样本量不足以确定拐点位置，不作结论。\n>\n> ## 增益矩阵\n>\n> 把当前妥投 a 天的用户缩短到 b 天，带来的日均 GMV 增益（post 期按 76 天折算）。外推格子不进入结论。\n>\n> | a → b | 人数 | 日均增益 | 95% CI | 可信度 |\n> |---|---|---|---|---|\n> | 12 → 10 | 1520 | 1.08 | [-4.89, 5.04] | 谨慎 |\n> | 13 → 10 | 1111 | 2.88 | [0.44, 5.22] | 可信 |\n> | 14 → 10 | 956 | 4.47 | [-0.61, 12.87] | 谨慎 |",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "list_metrics",
+   "input": {},
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "D"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "dY"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "log_pre_gmv"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "log_hist_days"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "妥投天数"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "GMV"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "region"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "tenure"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "D"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "dY"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "dY_placebo"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "post_orders"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "orders"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "cat_share"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "tier"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "log_hist_days"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "log_pre_gmv"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "region"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "tenure"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 4,
+   "tool": "build_dataset",
+   "input": {
+    "covariates": [
+     "log_hist_days",
+     "region",
+     "log_pre_gmv",
+     "orders",
+     "cat_share",
+     "tenure",
+     "tier"
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G1 时序",
+    "status": "pass",
+    "detail": "7 个协变量均为 pre 期变量"
+   },
+   "gate_true": {
+    "gate": "G1 时序",
+    "status": "pass",
+    "detail": "7 个协变量均为 pre 期变量"
+   }
+  },
+  {
+   "turn": 5,
+   "tool": "fit_gps",
+   "input": {},
+   "is_error": false,
+   "gate": {
+    "gate": "G2 平衡",
+    "status": "pass",
+    "detail": "加权后 X 与 D 的最大绝对相关为 0.143（region），加权前为 0.635，阈值 0.25"
+   },
+   "gate_true": {
+    "gate": "G2 平衡",
+    "status": "pass",
+    "detail": "加权后 X 与 D 的最大绝对相关为 0.143（region），加权前为 0.635，阈值 0.25"
+   }
+  },
+  {
+   "turn": 6,
+   "tool": "estimate_dose_response",
+   "input": {
+    "from_days": [
+     12,
+     13,
+     14
+    ],
+    "to_days": [
+     10
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G3 重叠",
+    "status": "degrade",
+    "detail": "9 个剂量点有效样本量不足（5, 14.5, 15, 15.5, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论"
+   },
+   "gate_true": {
+    "gate": "G3 重叠",
+    "status": "degrade",
+    "detail": "9 个剂量点有效样本量不足（5, 14.5, 15, 15.5, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论"
+   }
+  },
+  {
+   "turn": 7,
+   "tool": "run_placebo",
+   "input": {},
+   "is_error": false,
+   "gate": {
+    "gate": "G4 Placebo",
+    "status": "pass",
+    "detail": "placebo 曲线的一致置信带覆盖 0（最大偏离 0.444）"
+   },
+   "gate_true": {
+    "gate": "G4 Placebo",
+    "status": "pass",
+    "detail": "placebo 曲线的一致置信带覆盖 0（最大偏离 0.444）"
+   }
+  },
+  {
+   "turn": 8,
+   "tool": "render_report",
+   "input": {
+    "narrative": "G1 时序、G2 平衡、G4 Placebo 均通过；G3 重叠降级：5、14.5、15、15.5、18、18.5、19、19.5、20 天共 9 个剂量点有效样本量不足，仅作外推参考，不进入结论。拐点估计为 7.0 天，但其区间为 7.0–14.5 天，宽于 3 天，因此不对拐点下结论。以 10 天为参照、将妥投天数缩短到 10 天的每天 GMV 增益：12 天缩短到 10 天为 1.0794（区间 -4.8898 至 5.04，可信度 caution，区间包含 0）；13 天缩短到 10 天为 2.8846（区间 0.4351 至 5.223，可信度 trusted）；14 天缩短到 10 天为 4.4694（区间 -0.6101 至 12.8705，可信度 caution，区间包含 0）。"
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   },
+   "gate_true": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   }
+  }
+ ],
+ "checks": {
+  "finished_with_report": true,
+  "no_post_treatment_covariate": true,
+  "all_numbers_verified": true
+ },
+ "report": "# 物流时效对 GMV 的因果影响分析\n\n## 假设检验\n\n| Gate | 结果 | 说明 |\n|---|---|---|\n| G1 时序 | 通过 | 7 个协变量均为 pre 期变量 |\n| G2 平衡 | 通过 | 加权后 X 与 D 的最大绝对相关为 0.143（region），加权前为 0.635，阈值 0.25 |\n| G3 重叠 | 降级 | 9 个剂量点有效样本量不足（5, 14.5, 15, 15.5, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论 |\n| G4 Placebo | 通过 | placebo 曲线的一致置信带覆盖 0（最大偏离 0.444） |\n\n## 剂量响应\n\n相对 10 天的日均 GMV 变化 θ(10, d)，95% 置信区间，样本量 20000。\n\n| 妥投天数 | θ | 95% CI | 可信度 |\n|---|---|---|---|\n| 5 | 0.154 | [-0.300, 0.734] | 外推 |\n| 6 | -0.072 | [-0.455, 0.240] | 谨慎 |\n| 7 | 0.075 | [-0.112, 0.284] | 可信 |\n| 8 | 0.076 | [-0.057, 0.212] | 可信 |\n| 9 | 0.058 | [-0.085, 0.195] | 可信 |\n| 11 | -0.122 | [-0.308, 0.035] | 可信 |\n| 12 | -0.054 | [-0.252, 0.244] | 谨慎 |\n| 13 | -0.197 | [-0.357, -0.030] | 可信 |\n| 14 | -0.355 | [-1.023, 0.048] | 谨慎 |\n| 15 | -0.203 | [-0.515, 0.123] | 外推 |\n| 16 | -0.349 | [-0.556, -0.136] | 谨慎 |\n| 17 | -0.434 | [-0.610, -0.258] | 谨慎 |\n| 18 | -0.398 | [-0.574, -0.220] | 外推 |\n| 19 | -0.529 | [-0.796, -0.303] | 外推 |\n| 20 | -2.149 | [-6.746, -0.313] | 外推 |\n\n拐点的 95% CI 为 [7.00, 14.50]，宽于 3 天，样本量不足以确定拐点位置，不作结论。\n\n## 增益矩阵\n\n把当前妥投 a 天的用户缩短到 b 天，带来的日均 GMV 增益（post 期按 76 天折算）。外推格子不进入结论。\n\n| a → b | 人数 | 日均增益 | 95% CI | 可信度 |\n|---|---|---|---|---|\n| 12 → 10 | 1520 | 1.08 | [-4.89, 5.04] | 谨慎 |\n| 13 → 10 | 1111 | 2.88 | [0.44, 5.22] | 可信 |\n| 14 → 10 | 956 | 4.47 | [-0.61, 12.87] | 谨慎 |\n\n## 解读\n\nG1 时序、G2 平衡、G4 Placebo 均通过；G3 重叠降级：5、14.5、15、15.5、18、18.5、19、19.5、20 天共 9 个剂量点有效样本量不足，仅作外推参考，不进入结论。拐点估计为 7.0 天，但其区间为 7.0–14.5 天，宽于 3 天，因此不对拐点下结论。以 10 天为参照、将妥投天数缩短到 10 天的每天 GMV 增益：12 天缩短到 10 天为 1.0794（区间 -4.8898 至 5.04，可信度 caution，区间包含 0）；13 天缩短到 10 天为 2.8846（区间 0.4351 至 5.223，可信度 trusted）；14 天缩短到 10 天为 4.4694（区间 -0.6101 至 12.8705，可信度 caution，区间包含 0）。"
+}

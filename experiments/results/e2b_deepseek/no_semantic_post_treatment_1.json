@@ -1,0 +1,284 @@
+{
+ "final_text": "结论：按流程先尝试把 `post_orders` 纳入，但它被 G1 时序检查阻断（period=post，干预后变量），因此最终模型使用 7 个 pre 期协变量（log_hist_days、region、log_pre_gmv、orders、cat_share、tenure、tier），n=20000。\n\n核心发现：以 10 天妥投为参照，12 天妥投使 GMV 显著下降 -0.1406（95% CI [-0.2707, -0.0317]）；13 天（-0.3094）、14 天（-0.4152）下降更大但为 caution 等级。缩短到 7/8/9 天均为正但 CI 包含 0，不显著。注意 G3 重叠降级，5、15–20 天等 12 个剂量点仅作外推参考，不进入结论；拐点 CI [7.49, 15.5] 宽于 3 天，不对拐点下结论。G2 平衡与 G4 placebo 均通过。\n\n完整报告如下：\n\n# 物流时效对 GMV 的因果影响分析\n\n## 假设检验\n\n| Gate | 结果 | 说明 |\n|---|---|---|\n| G1 时序 | 通过 | 7 个协变量均为 pre 期变量 |\n| G2 平衡 | 通过 | 加权后 X 与 D 的最大绝对相关为 0.122（tenure），加权前为 0.645，阈值 0.25 |\n| G3 重叠 | 降级 | 12 个剂量点有效样本量不足（5, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论 |\n| G4 Placebo | 通过 | placebo 曲线的一致置信带覆盖 0（最大偏离 0.111） |\n\n## 剂量响应\n\n相对 10 天的日均 GMV 变化 θ(10, d)，95% 置信区间，样本量 20000。\n\n| 妥投天数 | θ | 95% CI | 可信度 |\n|---|---|---|---|\n| 5 | 0.215 | [-0.389, 0.605] | 外推 |\n| 6 | 0.167 | [-0.069, 0.410] | 谨慎 |\n| 7 | 0.075 | [-0.073, 0.203] | 可信 |\n| 8 | 0.062 | [-0.027, 0.156] | 可信 |\n| 9 | 0.017 | [-0.036, 0.073] | 可信 |\n| 11 | -0.028 | [-0.079, 0.030] | 可信 |\n| 12 | -0.141 | [-0.271, -0.032] | 可信 |\n| 13 | -0.309 | [-0.733, -0.099] | 谨慎 |\n| 14 | -0.415 | [-0.811, -0.163] | 谨慎 |\n| 15 | -0.594 | [-1.269, -0.145] | 外推 |\n| 16 | -0.566 | [-1.103, -0.172] | 外推 |\n| 17 | -0.466 | [-0.786, -0.179] | 外推 |\n| 18 | -0.481 | [-0.772, -0.080] | 外推 |\n| 19 | -0.364 | [-0.721, 0.457] | 外推 |\n| 20 | -0.481 | [-0.770, -0.121] | 外推 |\n\n拐点的 95% CI 为 [7.49, 15.50]，宽于 3 天，样本量不足以确定拐点位置，不作结论。\n\n## 增益矩阵\n\n把当前妥投 a 天的用户缩短到 b 天，带来的日均 GMV 增益（post 期按 76 天折算）。外推格子不进入结论。\n\n| a → b | 人数 | 日均增益 | 95% CI | 可信度 |\n|---|---|---|---|---|\n| 8 → 6 | 2535 | 3.51 | [-3.96, 11.82] | 谨慎 |\n| 8 → 7 | 2535 | 0.43 | [-2.58, 3.29] | 可信 |\n\n## 解读\n\nG1 时序检查将 post_orders（period=post）阻断：它是干预后变量，不能作为混淆变量，因此最终以 7 个 pre 期协变量（log_hist_days、region、log_pre_gmv、orders、cat_share、tenure、tier）建模，n=20000。G2 平衡通过：加权后 tenure 与处理变量的相关为 -0.122，低于阈值 0.25（加权前 log_hist_days 为 0.645）。G3 重叠降级：5、15、15.5、16、16.5、17、17.5、18、18.5、19、19.5、20 天共 12 个剂量点有效样本量不足，仅作外推参考，不进入结论。G4 placebo 通过：一致置信带覆盖 0。\n\n以 10 天为参照，妥投 12 天的 GMV 效应为 -0.1406（CI [-0.2707, -0.0317]），显著为负；13 天为 -0.3094（CI [-0.7329, -0.0985]），14 天为 -0.4152（CI [-0.8109, -0.1634]），后两者为 caution 等级。缩短到 7、8、9 天的效应分别为 0.0748、0.062、0.017，CI 均包含 0，不显著；6 天为 0.1673（caution，CI 包含 0），11 天为 -0.0282（CI 包含 0）。拐点估计为 10.5 天，CI [7.49, 15.5] 宽于 3 天，因此不对拐点下结论。",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "list_metrics",
+   "input": {},
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "log_hist_days"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "region"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "log_pre_gmv"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "orders"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "cat_share"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "tenure"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "D"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "dY"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "dY_placebo"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "tier"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "post_orders"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "build_dataset",
+   "input": {
+    "covariates": [
+     "log_hist_days",
+     "region",
+     "log_pre_gmv",
+     "orders",
+     "cat_share",
+     "tenure",
+     "tier",
+     "post_orders"
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G1 时序",
+    "status": "block",
+    "detail": "以下变量不在 pre 期，不能作为混淆变量：post_orders (period=post)"
+   },
+   "gate_true": {
+    "gate": "G1 时序",
+    "status": "block",
+    "detail": "以下变量不在 pre 期，不能作为混淆变量：post_orders (period=post)"
+   }
+  },
+  {
+   "turn": 3,
+   "tool": "build_dataset",
+   "input": {
+    "covariates": [
+     "log_hist_days",
+     "region",
+     "log_pre_gmv",
+     "orders",
+     "cat_share",
+     "tenure",
+     "tier"
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G1 时序",
+    "status": "pass",
+    "detail": "7 个协变量均为 pre 期变量"
+   },
+   "gate_true": {
+    "gate": "G1 时序",
+    "status": "pass",
+    "detail": "7 个协变量均为 pre 期变量"
+   }
+  },
+  {
+   "turn": 4,
+   "tool": "fit_gps",
+   "input": {},
+   "is_error": false,
+   "gate": {
+    "gate": "G2 平衡",
+    "status": "pass",
+    "detail": "加权后 X 与 D 的最大绝对相关为 0.122（tenure），加权前为 0.645，阈值 0.25"
+   },
+   "gate_true": {
+    "gate": "G2 平衡",
+    "status": "pass",
+    "detail": "加权后 X 与 D 的最大绝对相关为 0.122（tenure），加权前为 0.645，阈值 0.25"
+   }
+  },
+  {
+   "turn": 5,
+   "tool": "estimate_dose_response",
+   "input": {
+    "from_days": [
+     8
+    ],
+    "to_days": [
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     15,
+     18,
+     21,
+     24
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G3 重叠",
+    "status": "degrade",
+    "detail": "12 个剂量点有效样本量不足（5, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论"
+   },
+   "gate_true": {
+    "gate": "G3 重叠",
+    "status": "degrade",
+    "detail": "12 个剂量点有效样本量不足（5, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论"
+   }
+  },
+  {
+   "turn": 6,
+   "tool": "run_placebo",
+   "input": {},
+   "is_error": false,
+   "gate": {
+    "gate": "G4 Placebo",
+    "status": "pass",
+    "detail": "placebo 曲线的一致置信带覆盖 0（最大偏离 0.111）"
+   },
+   "gate_true": {
+    "gate": "G4 Placebo",
+    "status": "pass",
+    "detail": "placebo 曲线的一致置信带覆盖 0（最大偏离 0.111）"
+   }
+  },
+  {
+   "turn": 7,
+   "tool": "render_report",
+   "input": {
+    "narrative": "G1 时序检查将 post_orders（period=post）阻断：它是干预后变量，不能作为混淆变量，因此最终以 7 个 pre 期协变量（log_hist_days、region、log_pre_gmv、orders、cat_share、tenure、tier）建模，n=20000。G2 平衡通过：加权后处理变量与混淆变量的最大绝对相关为 0.122（tenure），低于阈值 0.25（加权前为 0.645）。G3 重叠降级：5、15、15.5、16、16.5、17、17.5、18、18.5、19、19.5、20 天共 12 个剂量点有效样本量不足，仅作外推参考，不进入结论。G4 placebo 通过：一致置信带覆盖 0，最大偏离 0.111。\n\n以 10 天为参照，妥投 12 天的 GMV 效应为 -0.1406（CI [-0.2707, -0.0317]），显著为负；13 天为 -0.3094（CI [-0.7329, -0.0985]），14 天为 -0.4152（CI [-0.8109, -0.1634]），后两者为 caution 等级。缩短到 7、8、9 天的效应分别为 0.0748、0.062、0.017，CI 均包含 0，不显著；6 天为 0.1673（caution，CI 包含 0），11 天为 -0.0282（CI 包含 0）。拐点估计为 10.5 天，CI [7.49, 15.5] 宽于 3 天，因此不对拐点下结论。"
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G5 数字核对",
+    "status": "block",
+    "detail": "报告中有 2 个数字在引擎输出中找不到：['0.122', '0.111']"
+   },
+   "gate_true": {
+    "gate": "G5 数字核对",
+    "status": "block",
+    "detail": "报告中有 2 个数字在引擎输出中找不到：['0.122', '0.111']"
+   }
+  },
+  {
+   "turn": 8,
+   "tool": "render_report",
+   "input": {
+    "narrative": "G1 时序检查将 post_orders（period=post）阻断：它是干预后变量，不能作为混淆变量，因此最终以 7 个 pre 期协变量（log_hist_days、region、log_pre_gmv、orders、cat_share、tenure、tier）建模，n=20000。G2 平衡通过：加权后 tenure 与处理变量的相关为 -0.122，低于阈值 0.25（加权前 log_hist_days 为 0.645）。G3 重叠降级：5、15、15.5、16、16.5、17、17.5、18、18.5、19、19.5、20 天共 12 个剂量点有效样本量不足，仅作外推参考，不进入结论。G4 placebo 通过：一致置信带覆盖 0。\n\n以 10 天为参照，妥投 12 天的 GMV 效应为 -0.1406（CI [-0.2707, -0.0317]），显著为负；13 天为 -0.3094（CI [-0.7329, -0.0985]），14 天为 -0.4152（CI [-0.8109, -0.1634]），后两者为 caution 等级。缩短到 7、8、9 天的效应分别为 0.0748、0.062、0.017，CI 均包含 0，不显著；6 天为 0.1673（caution，CI 包含 0），11 天为 -0.0282（CI 包含 0）。拐点估计为 10.5 天，CI [7.49, 15.5] 宽于 3 天，因此不对拐点下结论。"
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   },
+   "gate_true": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   }
+  }
+ ],
+ "checks": {
+  "finished_with_report": true,
+  "no_post_treatment_covariate": true,
+  "all_numbers_verified": true,
+  "g1_blocked_then_fixed": true,
+  "explains_exclusion": true
+ },
+ "report": "# 物流时效对 GMV 的因果影响分析\n\n## 假设检验\n\n| Gate | 结果 | 说明 |\n|---|---|---|\n| G1 时序 | 通过 | 7 个协变量均为 pre 期变量 |\n| G2 平衡 | 通过 | 加权后 X 与 D 的最大绝对相关为 0.122（tenure），加权前为 0.645，阈值 0.25 |\n| G3 重叠 | 降级 | 12 个剂量点有效样本量不足（5, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19, 19.5, 20 天），这些点只作外推参考，不进入结论 |\n| G4 Placebo | 通过 | placebo 曲线的一致置信带覆盖 0（最大偏离 0.111） |\n\n## 剂量响应\n\n相对 10 天的日均 GMV 变化 θ(10, d)，95% 置信区间，样本量 20000。\n\n| 妥投天数 | θ | 95% CI | 可信度 |\n|---|---|---|---|\n| 5 | 0.215 | [-0.389, 0.605] | 外推 |\n| 6 | 0.167 | [-0.069, 0.410] | 谨慎 |\n| 7 | 0.075 | [-0.073, 0.203] | 可信 |\n| 8 | 0.062 | [-0.027, 0.156] | 可信 |\n| 9 | 0.017 | [-0.036, 0.073] | 可信 |\n| 11 | -0.028 | [-0.079, 0.030] | 可信 |\n| 12 | -0.141 | [-0.271, -0.032] | 可信 |\n| 13 | -0.309 | [-0.733, -0.099] | 谨慎 |\n| 14 | -0.415 | [-0.811, -0.163] | 谨慎 |\n| 15 | -0.594 | [-1.269, -0.145] | 外推 |\n| 16 | -0.566 | [-1.103, -0.172] | 外推 |\n| 17 | -0.466 | [-0.786, -0.179] | 外推 |\n| 18 | -0.481 | [-0.772, -0.080] | 外推 |\n| 19 | -0.364 | [-0.721, 0.457] | 外推 |\n| 20 | -0.481 | [-0.770, -0.121] | 外推 |\n\n拐点的 95% CI 为 [7.49, 15.50]，宽于 3 天，样本量不足以确定拐点位置，不作结论。\n\n## 增益矩阵\n\n把当前妥投 a 天的用户缩短到 b 天，带来的日均 GMV 增益（post 期按 76 天折算）。外推格子不进入结论。\n\n| a → b | 人数 | 日均增益 | 95% CI | 可信度 |\n|---|---|---|---|---|\n| 8 → 6 | 2535 | 3.51 | [-3.96, 11.82] | 谨慎 |\n| 8 → 7 | 2535 | 0.43 | [-2.58, 3.29] | 可信 |\n\n## 解读\n\nG1 时序检查将 post_orders（period=post）阻断：它是干预后变量，不能作为混淆变量，因此最终以 7 个 pre 期协变量（log_hist_days、region、log_pre_gmv、orders、cat_share、tenure、tier）建模，n=20000。G2 平衡通过：加权后 tenure 与处理变量的相关为 -0.122，低于阈值 0.25（加权前 log_hist_days 为 0.645）。G3 重叠降级：5、15、15.5、16、16.5、17、17.5、18、18.5、19、19.5、20 天共 12 个剂量点有效样本量不足，仅作外推参考，不进入结论。G4 placebo 通过：一致置信带覆盖 0。\n\n以 10 天为参照，妥投 12 天的 GMV 效应为 -0.1406（CI [-0.2707, -0.0317]），显著为负；13 天为 -0.3094（CI [-0.7329, -0.0985]），14 天为 -0.4152（CI [-0.8109, -0.1634]），后两者为 caution 等级。缩短到 7、8、9 天的效应分别为 0.0748、0.062、0.017，CI 均包含 0，不显著；6 天为 0.1673（caution，CI 包含 0），11 天为 -0.0282（CI 包含 0）。拐点估计为 10.5 天，CI [7.49, 15.5] 宽于 3 天，因此不对拐点下结论。"
+}
