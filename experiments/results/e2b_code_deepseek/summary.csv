@@ -9,4 +9,7 @@ deepseek,code,trend_violation,0,False,30,29,580.1955235004425,stop,548401,31282,
 deepseek,code,trend_violation,1,False,28,27,450.9553155899048,stop,495159,30286,True,,False,
 deepseek,code,extrapolation,0,False,23,22,410.8700795173645,stop,371033,21769,True,,,False
 deepseek,code,extrapolation,1,False,30,29,361.3778762817383,stop,536515,27311,True,,,False
-deepseek,code,extrapolation,2,False,28,27,987.6805326938629,stop,527477,28938,True,,,False
+deepseek,code,extrapolation,2,False,28,27,987.6805326938628,stop,527477,28938,True,,,False
+deepseek,code,thin_support,0,False,29,28,541.9546506404877,stop,552048,30770,True,,,False
+deepseek,code,thin_support,1,False,30,29,752.1594784259796,stop,660211,28854,True,,,False
+deepseek,code,thin_support,2,False,28,27,535.5822529792786,stop,535559,27715,True,,,False
