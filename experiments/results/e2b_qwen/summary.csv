@@ -9,8 +9,10 @@ qwen,full,trend_violation,0,True,9,11,457.2654700279236,end_turn,16472,9121,True
 qwen,full,trend_violation,1,True,9,11,431.6754925251007,end_turn,14900,8880,True,True,True,,,True,True,,
 qwen,full,trend_violation,2,True,9,10,531.2037813663483,end_turn,20357,13009,True,True,True,,,True,True,,
 qwen,full,extrapolation,0,True,10,12,421.4673159122467,end_turn,15786,8261,True,True,True,,,,,True,
-qwen,full,extrapolation,1,True,9,10,367.52877378463745,end_turn,12533,5468,True,True,True,,,,,True,
+qwen,full,extrapolation,1,True,9,10,367.5287737846375,end_turn,12533,5468,True,True,True,,,,,True,
 qwen,full,extrapolation,2,True,8,9,314.2148537635803,end_turn,9276,3300,True,True,True,,,,,True,
 qwen,full,thin_support,0,True,9,10,387.24422240257263,end_turn,13525,6814,True,True,True,,,,,True,True
 qwen,full,thin_support,1,True,9,11,381.0231111049652,end_turn,14019,7047,True,True,True,,,,,True,True
-qwen,full,thin_support,2,True,10,11,361.35742950439453,end_turn,14272,5183,True,True,True,,,,,True,True
+qwen,full,thin_support,2,True,10,11,361.3574295043945,end_turn,14272,5183,True,True,True,,,,,True,True
+qwen,no_gates,clean,0,True,8,10,381.56085538864136,end_turn,11872,6438,True,True,True,,,,,,
+qwen,no_gates,clean,1,True,8,9,404.01142287254333,end_turn,12406,7383,True,True,True,,,,,,
