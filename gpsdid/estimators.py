@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from lightgbm import LGBMRegressor
-from sklearn.model_selection import KFold
+from sklearn.model_selection import GroupKFold, KFold
 
-from .gps import HeteroGBMGPS, NormalGPS
+from .gps import HeteroGBMGPS, NormalGPS, select_gps
 from .inference import (local_linear, local_linear_multiplier_bootstrap,
                         local_linear_weights, select_bandwidth, sup_t_band)
 
@@ -27,6 +27,8 @@ class DoseResponse:
     ess: np.ndarray = None    # effective sample size at each grid point
     xi: np.ndarray = field(repr=False, default=None)        # DR pseudo-outcomes
     vif: float = 1.0          # variance inflation applied to the draws (see subsample_inflation)
+    groups: tuple = field(repr=False, default=None)        # (codes, n_groups) for cluster resampling
+    gps_scores: dict = None   # cross-fitted log-likelihood per GPS preset when gps="auto"
 
     def ci(self, alpha=0.05):
         lo, hi = np.quantile(self.draws, [alpha / 2, 1 - alpha / 2], axis=0)
@@ -60,12 +62,17 @@ def _ess(D, grid, h, w):
     return A.sum(0) ** 2 / (A * A).sum(0)
 
 
-def _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed):
-    """One cross-fitting pass: per-unit residual, stabilized weight and mean outcome."""
+def _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed, groups=None):
+    """One cross-fitting pass: per-unit residual, stabilized weight and mean outcome.
+    With `groups`, all rows of a group fall in the same fold."""
     n = len(D)
     rng = np.random.default_rng(seed)
     resid, ratio, mbar = np.empty(n), np.empty(n), np.empty(n)
-    for k, (tr, te) in enumerate(KFold(n_folds, shuffle=True, random_state=seed).split(X)):
+    if groups is None:
+        folds = KFold(n_folds, shuffle=True, random_state=seed).split(X)
+    else:
+        folds = GroupKFold(n_folds, shuffle=True, random_state=seed).split(X, groups=groups)
+    for k, (tr, te) in enumerate(folds):
         g = gps().fit(X[tr], D[tr])
         om = outcome(seed + k).fit(np.column_stack([X[tr], D[tr]]), dY[tr])
         pi = g.density_from_params(g.params(X[te]), D[te])
@@ -83,7 +90,7 @@ def _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed):
 def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_model,
                      n_folds=5, n_splits=1, h=None, undersmooth=0.5, n_boot=500,
                      weight_clip=0.999, n_mc=1000, n_dose_grid=150, inflate=True,
-                     n_sub=12, sub_frac=0.5, seed=0):
+                     n_sub=12, sub_frac=0.5, groups=None, seed=0):
     """Cross-fitted doubly robust dose-response curve.
 
     Pseudo-outcome (Kennedy et al., 2017):
@@ -110,17 +117,33 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     estimated by subsampling (see `subsample_inflation`); half-size subsamples gave
     coverage 0.97 (quarter-size: 0.99, too conservative). Costs ~n_sub * sub_frac extra fits.
 
+    gps="auto" chooses the HeteroGBMGPS regularization preset by cross-fitted
+    log-likelihood (`select_gps`); the scores are kept in res.gps_scores.
+
+    `groups` (one label per row, e.g. a seller id when one seller contributes several
+    rows) makes every resampling step cluster-level: grouped folds, one bootstrap weight
+    per group, and subsamples of groups.
+
     `gps` and `outcome` are factories (called with no args / with seed) so each fold
     gets fresh models.
     """
+    gcodes = None
+    if groups is not None:
+        groups = np.asarray(groups)
+        codes = np.unique(groups, return_inverse=True)[1]
+        gcodes = (codes, int(codes.max()) + 1)
     X = np.asarray(X, float)
     D = np.asarray(D, float)
     dY = np.asarray(dY, float)
     grid = np.asarray(grid, float)
+    gps_scores = None
+    if gps == "auto":
+        gps, gps_scores = select_gps(X, D, groups=groups, seed=seed)
     dgrid = np.linspace(*np.quantile(D, [0.001, 0.999]), n_dose_grid)
     xis, ratios = [], []
     for sp in range(n_splits):
-        resid, ratio, mbar = _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed + 1000 * sp)
+        resid, ratio, mbar = _crossfit(X, D, dY, gps, outcome, n_folds, n_mc, dgrid, seed + 1000 * sp,
+                                       groups=groups)
         w_used = np.minimum(ratio, np.quantile(ratio, weight_clip))
         xis.append(resid * w_used + mbar)
         ratios.append(ratio)
@@ -133,20 +156,22 @@ def dr_dose_response(X, D, dY, grid, gps=HeteroGBMGPS, outcome=default_outcome_m
     # Each split's draws are centred on that split's own curve, so pooling them carries
     # the between-split variation.
     per = max(1, n_boot // n_splits)
-    draws = np.concatenate([local_linear_multiplier_bootstrap(D, x_s, grid, h, n_boot=per, seed=seed + sp)
+    draws = np.concatenate([local_linear_multiplier_bootstrap(D, x_s, grid, h, n_boot=per, seed=seed + sp,
+                                                              groups=gcodes)
                             for sp, x_s in enumerate(xis)])
     res = DoseResponse(grid=grid, mu=mu, draws=draws,
                        method=f"DR[{gps.__name__ if hasattr(gps, '__name__') else 'gps'}]",
-                       D=D, weights=ratio, h=h, ess=_ess(D, grid, h, w_used), xi=xi)
+                       D=D, weights=ratio, h=h, ess=_ess(D, grid, h, w_used), xi=xi, groups=gcodes,
+                       gps_scores=gps_scores)
     if inflate:
         kw = dict(gps=gps, outcome=outcome, n_folds=n_folds, weight_clip=weight_clip,
                   n_mc=n_mc, n_dose_grid=n_dose_grid)
-        res.vif = subsample_inflation(X, D, dY, res, kw, n_sub=n_sub, frac=sub_frac, seed=seed)
+        res.vif = subsample_inflation(X, D, dY, res, kw, n_sub=n_sub, frac=sub_frac, seed=seed, groups=groups)
         res.draws = mu + np.sqrt(res.vif) * (draws - mu)
     return res
 
 
-def subsample_inflation(X, D, dY, res, fit_kw, n_sub=12, frac=0.5, seed=0):
+def subsample_inflation(X, D, dY, res, fit_kw, n_sub=12, frac=0.5, seed=0, groups=None):
     """Scalar variance inflation factor for the multiplier-bootstrap draws.
 
     Refits the full estimator (nuisances included, bandwidth held at res.h) on n_sub
@@ -154,15 +179,22 @@ def subsample_inflation(X, D, dY, res, fit_kw, n_sub=12, frac=0.5, seed=0):
     data set, Var(mu_b) = sigma^2 (1/b - 1/n), so the full-sample variance is
     Var(mu_b) / (n/b - 1). Nuisances fit on b < n points are worse, which makes the
     factor conservative. The factor is the median ratio over grid points (one scalar
-    keeps the correlation structure of the draws), and never below 1.
+    keeps the correlation structure of the draws), and never below 1. With `groups`,
+    whole groups are subsampled and n, b count groups.
     """
     rng = np.random.default_rng(seed + 7919)
-    n = len(D)
-    b = int(frac * n)
+    if groups is None:
+        n = len(D)
+        b = int(frac * n)
+        draws_idx = [rng.choice(n, b, replace=False) for _ in range(n_sub)]
+    else:
+        uniq = np.unique(groups)
+        n, b = len(uniq), int(frac * len(uniq))
+        draws_idx = [np.flatnonzero(np.isin(groups, rng.choice(uniq, b, replace=False))) for _ in range(n_sub)]
     sub = np.stack([
         dr_dose_response(X[idx], D[idx], dY[idx], res.grid, h=res.h, n_boot=1, inflate=False,
-                         seed=seed + j + 1, **fit_kw).mu
-        for j, idx in enumerate(rng.choice(n, b, replace=False) for _ in range(n_sub))])
+                         seed=seed + j + 1, groups=None if groups is None else groups[idx], **fit_kw).mu
+        for j, idx in enumerate(draws_idx)])
     sub_var = sub.var(0, ddof=1) / (n / b - 1)
     ratio = sub_var / res.draws.var(0)
     return float(max(1.0, np.median(ratio[np.isfinite(ratio)])))

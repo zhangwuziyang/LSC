@@ -32,7 +32,12 @@ def kink(res, lo, hi, step=0.25, n_boot=200, alpha=0.05, seed=0):
         x, y = res.D[m], res.xi[m]
         rng = np.random.default_rng(seed)
         point = _hinge_fit(x, y, cand)
-        boot = np.array([_hinge_fit(x, y, cand, rng.exponential(1.0, len(x))) for _ in range(n_boot)])
+        if res.groups is None:
+            weights = lambda: rng.exponential(1.0, len(x))
+        else:  # one weight per group (cluster bootstrap)
+            codes, n_groups = res.groups
+            weights = lambda: rng.exponential(1.0, n_groups)[codes[m]]
+        boot = np.array([_hinge_fit(x, y, cand, weights()) for _ in range(n_boot)])
     else:
         m = (res.grid >= lo) & (res.grid <= hi)
         x = res.grid[m]

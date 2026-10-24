@@ -28,11 +28,12 @@ def local_linear_weights(x, grid, h):
     return L / L.sum(0, keepdims=True)
 
 
-def local_linear_multiplier_bootstrap(x, y, grid, h, n_boot=500, seed=0, chunk=50):
+def local_linear_multiplier_bootstrap(x, y, grid, h, n_boot=500, seed=0, chunk=50, groups=None):
     """Draws of the local linear fit under Exp(1) multiplier weights, shape (n_boot, G).
 
     All five kernel sums are linear in the weights, so each chunk of draws is a matrix
-    product V @ (n, G) instead of a loop over units.
+    product V @ (n, G) instead of a loop over units. With `groups`, all rows of a group
+    share one weight (cluster bootstrap).
     """
     rng = np.random.default_rng(seed)
     U, K = _kernel_terms(x, grid, h)
@@ -41,7 +42,11 @@ def local_linear_multiplier_bootstrap(x, y, grid, h, n_boot=500, seed=0, chunk=5
     out = np.empty((n_boot, len(grid)))
     for start in range(0, n_boot, chunk):
         b = min(chunk, n_boot - start)
-        V = rng.exponential(1.0, size=(b, len(x)))
+        if groups is None:
+            V = rng.exponential(1.0, size=(b, len(x)))
+        else:
+            codes, n_groups = groups
+            V = rng.exponential(1.0, size=(b, n_groups))[:, codes]
         S0, S1, S2, T0, T1 = (V @ a for a in A)
         out[start:start + b] = (S2 * T0 - S1 * T1) / (S0 * S2 - S1 ** 2)
     return out

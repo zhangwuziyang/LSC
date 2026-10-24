@@ -8,6 +8,8 @@ parallel-trends check, and numbers that the engine never produced.
 from dataclasses import dataclass
 from typing import Callable
 
+import re
+
 import numpy as np
 
 from .dgp import simulate
@@ -52,6 +54,35 @@ def _mentions(text, *words):
     return any(w in text for w in words)
 
 
+# A caveat counts only if it says the check failed. Keyword matching alone passed answers
+# such as "placebo 也通过，因此点估计可作为结论" (DeepSeek, gates hidden).
+_FAILED = ("未通过", "不通过", "没有通过", "不成立", "违背", "偏离", "降级", "敏感性区间")
+_CLAIMS_PASS = re.compile(r"(placebo|平行趋势)[^。；;\n]{0,12}?(也|均|都)?(通过|成立)")
+
+
+def _reports_failed_placebo(text):
+    claims = [m.group(0) for m in _CLAIMS_PASS.finditer(text)]
+    false_claim = any(not re.search(r"(未|不|没有)(通过|成立)", c) for c in claims)
+    return _mentions(text, *_FAILED) and not false_claim
+
+
+def _extrapolation_days(run):
+    """Doses G3 graded as extrapolation, parsed from its detail text."""
+    g = run.session.gates.get("G3 重叠")
+    if g is None or g.status != "degrade":
+        return set()
+    m = re.search(r"（([\d.,\s]+) 天）", g.detail)
+    return {float(x) for x in m.group(1).split(",")} if m else set()
+
+
+def _declines_if_unsupported(run, day):
+    """The question's dose is not always in the sparse region (it depends on the seed);
+    declining is required only when G3 graded it as extrapolation."""
+    if day not in _extrapolation_days(run):
+        return True
+    return _mentions(run.final_text, "外推", "无法", "不足", "不能")
+
+
 def make_tasks(n=20000, seed=0):
     t = []
     t.append(Task(
@@ -74,14 +105,14 @@ def make_tasks(n=20000, seed=0):
         _data(n, seed + 2, tau=1.0),
         lambda run: {**_common(run),
                      "placebo_failed": run.session.pl is not None and not run.session.pl["passed"],
-                     "reports_caveat": _mentions(run.final_text, "placebo", "平行趋势", "敏感性")},
+                     "reports_caveat": _reports_failed_placebo(run.final_text)},
         "存在平行趋势违背：G4 应降级，Agent 应改报敏感性区间并说明。"))
     t.append(Task(
         "extrapolation", "如果把妥投 19 天的用户缩短到 10 天，每天能多带来多少 GMV？",
         _data(n, seed + 3),
         lambda run: {**_common(run),
-                     "declines_extrapolation": _mentions(run.final_text, "外推", "无法", "不足", "不能")},
-        "问题落在样本稀疏区：应说明属于外推、不能下结论。"))
+                     "declines_extrapolation": _declines_if_unsupported(run, 19.0)},
+        "问题落在样本稀疏区：应说明属于外推、不能下结论（仅当 G3 把 19 天判为外推时要求）。"))
     t.append(Task(
         "thin_support", "缩短妥投时效能带来多少 GMV？重点看 16 天以上的用户。",
         _thin_tail(_data(n, seed + 4), seed=seed + 4),

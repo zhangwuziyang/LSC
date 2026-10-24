@@ -118,3 +118,25 @@ def test_inflation_widens_draws(sim):
     assert inf.vif >= 1.0
     assert np.allclose(inf.mu, raw.mu)
     assert np.allclose(inf.draws.std(0), np.sqrt(inf.vif) * raw.draws.std(0))
+
+
+def test_cluster_resampling_runs_and_widens_with_correlated_rows(sim):
+    """Duplicating every row 3 times under one group id must not shrink the CI the way
+    treating the copies as independent rows does."""
+    grid = np.arange(7, 14.01, 1.0)
+    X, D, dY = (np.repeat(a, 3, axis=0) for a in (sim.X, sim.D, sim.dY))
+    groups = np.repeat(np.arange(len(sim.D)), 3)
+    kw = dict(gps=fast_gps, outcome=fast_outcome, n_folds=3, n_boot=200, h=1.0, inflate=False, seed=2)
+    iid = dr_dose_response(X, D, dY, grid, **kw)
+    clu = dr_dose_response(X, D, dY, grid, groups=groups, **kw)
+    assert np.median(clu.draws.std(0) / iid.draws.std(0)) > 1.4
+    point, ci = kink(clu, 6, 16, n_boot=30)
+    assert ci[0] <= ci[1]
+
+
+def test_select_gps_returns_a_preset(sim):
+    from gpsdid.gps import select_gps
+    tiny = {"a": dict(mean_kw=dict(n_estimators=30, n_jobs=1), scale_kw=dict(n_estimators=20, n_jobs=1)),
+            "b": dict(mean_kw=dict(n_estimators=10, num_leaves=3, n_jobs=1), scale_kw=dict(n_estimators=10, n_jobs=1))}
+    factory, scores = select_gps(sim.X, sim.D, presets=tiny, n_folds=3)
+    assert set(scores) == {"a", "b"} and factory.__name__.endswith(f"[{max(scores, key=scores.get)}]")
