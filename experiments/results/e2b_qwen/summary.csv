@@ -23,3 +23,5 @@ qwen,no_gates,post_treatment,2,True,8,7,378.50487446784973,end_turn,10284,5804,T
 qwen,no_gates,trend_violation,0,False,9,12,508.05402421951294,end_turn,18424,12821,True,True,True,,,True,False,,
 qwen,no_gates,trend_violation,1,False,8,10,481.33503794670105,end_turn,17289,11000,True,True,True,,,True,False,,
 qwen,no_gates,trend_violation,2,False,9,16,436.02866101264954,end_turn,15678,8890,True,True,True,,,True,False,,
+qwen,no_gates,extrapolation,0,False,8,10,368.464111328125,end_turn,9580,4788,True,True,True,,,,,False,
+qwen,no_gates,extrapolation,1,False,8,8,354.7189390659332,end_turn,8560,4420,True,True,True,,,,,False,
