@@ -135,6 +135,19 @@ Table 3 decomposes the original undercoverage (heavy tail, 20 replications, no i
 
 Capping causes a small bias but removing it raises RMSE 2.4-fold; outcome-model capacity is irrelevant; the dominant cause is the understated variance, which §4.3 corrects.
 
+### 6.3b E1b: misspecification, confounding and sample size
+We break the GPS's location-scale assumption and vary confounding and sample size. *Bimodal*: two shipping channels; *gamma*: gamma dose whose shape depends on covariates; *strong confounding*: confounding 2.5× stronger plus a covariate interaction. "Ours" selects the GPS preset by cross-fitted likelihood. 15 replications (10 at n = 50k).
+
+| Scenario | Industry RMSE | Industry coverage | Ours RMSE | Ours coverage | Ours band covers | Ours width |
+|---|---|---|---|---|---|---|
+| Strong confounding | 0.413 | 4.7% | 0.073 | 96.0% | 100% | 0.32 |
+| Bimodal dose | 0.159 | 3.7% | 0.067 | 92.3% | 100% | 0.23 |
+| Gamma dose | 0.123 | 0.0% | 0.032 | 74.3% | 53% | 0.09 |
+| n = 5,000 | 0.168 | 27.3% | 0.089 | 94.7% | 100% | 0.40 |
+| n = 50,000 | 0.160 | 8.0% | 0.054 | 91.5% | 100% | 0.19 |
+
+Our RMSE is a sixth to a half of the industry estimator's throughout. Preset selection is necessary: with the default preset the GBM GPS overfits the bimodal dose and the small sample (RMSE 0.231 and 0.152). Under the gamma dose all three DR variants undercover (67–82%); the intervals are narrow and the residual bias (0.027) is about 60% of the half-width. A normal GPS has lower RMSE under the bimodal dose (0.044) but covers only 77%.
+
 ### 6.4 E2a: operating characteristics of the placebo gate
 15 replications per violation strength $\tau$.
 
@@ -177,7 +190,7 @@ The placebo test fails in both specifications: sellers with slower deliveries we
 
 ## 7 Discussion and Limitations
 
-- **GPS form.** The simulated dose follows a location-scale model, which matches our GPS; more complex conditional distributions remain to be tested.
+- **GPS form.** When dose skewness varies with covariates (gamma scenario, §6.3b), intervals undercover (74%): with narrow intervals, smoothing and trimming bias is no longer negligible. Stronger undersmoothing or explicit bias correction is future work.
 - **Cost of valid inference.** Variance inflation multiplies runtime by about six; at 1.4 million users this needs engineering (parallel subsamples).
 - **Kink intervals** are conservative; better breakpoint inference would help.
 - **Gate scope.** G4 detects mild trend violations only 60% of the time; the sensitivity interval is the second line of defence, not the placebo test alone. Gates check what can be checked; A1 remains an assumption.
