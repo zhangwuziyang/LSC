@@ -1,0 +1,8 @@
+{
+ "task": "clean_specific",
+ "rep": 1,
+ "condition": "code",
+ "provider": "deepseek",
+ "error": "APIStatusError: Error code: 402 - Insufficient Balance (request_id: 78ec6899-a89b-4805-8860-19b07f48a7a9)",
+ "seconds": 1.1066620349884033
+}
