@@ -15,4 +15,11 @@ qwen,full,thin_support,0,True,9,10,387.24422240257263,end_turn,13525,6814,True,T
 qwen,full,thin_support,1,True,9,11,381.0231111049652,end_turn,14019,7047,True,True,True,,,,,True,True
 qwen,full,thin_support,2,True,10,11,361.3574295043945,end_turn,14272,5183,True,True,True,,,,,True,True
 qwen,no_gates,clean,0,True,8,10,381.56085538864136,end_turn,11872,6438,True,True,True,,,,,,
-qwen,no_gates,clean,1,True,8,9,404.01142287254333,end_turn,12406,7383,True,True,True,,,,,,
+qwen,no_gates,clean,1,True,8,9,404.0114228725433,end_turn,12406,7383,True,True,True,,,,,,
+qwen,no_gates,clean,2,True,8,10,370.9630193710327,end_turn,11415,5241,True,True,True,,,,,,
+qwen,no_gates,post_treatment,0,True,8,9,402.5201315879822,end_turn,12433,7055,True,True,True,True,True,,,,
+qwen,no_gates,post_treatment,1,True,9,9,371.68328046798706,end_turn,12776,5929,True,True,True,True,True,,,,
+qwen,no_gates,post_treatment,2,True,8,7,378.50487446784973,end_turn,10284,5804,True,True,True,True,True,,,,
+qwen,no_gates,trend_violation,0,False,9,12,508.05402421951294,end_turn,18424,12821,True,True,True,,,True,False,,
+qwen,no_gates,trend_violation,1,False,8,10,481.33503794670105,end_turn,17289,11000,True,True,True,,,True,False,,
+qwen,no_gates,trend_violation,2,False,9,16,436.02866101264954,end_turn,15678,8890,True,True,True,,,True,False,,
