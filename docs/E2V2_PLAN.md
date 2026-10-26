@@ -32,3 +32,6 @@
 
 ## 评分（预注册，`experiments/judging_v2/RUBRIC.md`）
 两名独立盲评员 + 第三名仲裁；报告评分员 A、多数票两种口径和 Cohen's kappa。规则与任务自提交 `2c1c5d6` 起冻结。
+
+## 修订（在任何 v2 no_gates 运行开始之前）
+v1 的 no_gates 条件把检验结果显示为"通过（检查已关闭）"，并在 placebo 工具里返回 `placebo_passed: true`。这不是"隐藏"检验，而是向模型提供了错误的结论（千问 v1 no_gates 的回答因此写出"placebo 通过"）。改为中性呈现：检验状态显示为"未检查 / 该检查未执行"，placebo 工具不返回 `placebo_passed`，报告中的可信度列显示"未评估"。full、code、fixed 三个条件不受影响；任务、评分规则和真实情况不变。
