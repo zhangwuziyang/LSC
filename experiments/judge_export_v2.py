@@ -15,6 +15,16 @@ from sim.traps_v2 import BY_ID, truth
 ROOT = Path(__file__).parent / "results" / "e2v2"
 
 
+def shown_to_user(rec):
+    """What the user receives: the model's text plus the released report, if any. Agent answers
+    often point to the report ("见上方报告"), so the text alone would hide its intervals."""
+    text = rec.get("final_text") or ""
+    report = rec.get("report")
+    if report and report.strip() not in text:
+        text = f"{text}\n\n---\n附：报告\n\n{report}" if text else report
+    return text or "（没有给出回答）"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--key", required=True)
@@ -30,7 +40,7 @@ def main():
             task = BY_ID[rec["task"]]
             ref = json.loads((ROOT / "reference" / f"{rec['task']}_{rec['rep']}.json").read_text())
             items.append(dict(folder=folder.name, task=rec["task"], rep=rec["rep"], question=task.question,
-                              truth=truth(task, ref), answer=mask(rec.get("final_text") or "（没有给出回答）")))
+                              truth=truth(task, ref), answer=mask(shown_to_user(rec))))
     random.Random(args.seed).shuffle(items)
     out = Path(__file__).parent / "judging_v2"
     key = []
