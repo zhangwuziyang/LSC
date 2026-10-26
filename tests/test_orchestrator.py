@@ -97,7 +97,7 @@ def test_no_gates_ablation_hides_verdicts_but_keeps_them_for_grading():
     ]
     client = FakeClient(script)
     run = run_agent(task.df, task.question, client=client, session_kw=dict(gates_enabled=False, **FAST))
-    assert client.seen[0][0]["gate"]["status"] == "pass"             # model is not told about G1
+    assert client.seen[0][0]["gate"]["status"] == "not_checked"      # model is not told about G1
     assert run.session.gates["G1 时序"].status == "block"            # but the grader knows
     checks = task.checks(run)
     assert not checks["no_post_treatment_covariate"] and not checks["all_numbers_verified"]
@@ -209,3 +209,18 @@ def test_code_baseline_forces_a_final_answer():
     run = run_code_baseline(task.df, task.question, provider="deepseek", client=Endless([]), max_turns=6)
     assert seen[-1] == "none" and run.final_text.startswith("结论") and len(run.code) == 5
     assert any("还剩 1 次" in e["output"] for e in run.trace)
+
+
+def test_fixed_pipeline_keeps_unlabelled_columns_and_drops_labelled_ones():
+    from pathlib import Path
+    from agent.fixed_pipeline import run_fixed
+    from agent.semantic import SemanticLayer
+    from sim.traps_v2 import BY_ID, make_df
+    sem = SemanticLayer(Path(__file__).parents[1] / "agent" / "semantic_layer" / "sim_metrics_v2.yaml")
+    leak = make_df(BY_ID["leak_unlabelled"], 0, n=2500)
+    s, text = run_fixed(leak, sem, session_kw=FAST)
+    assert "late_flag" in s.covariates and "post_orders" not in s.covariates
+    assert s.gates["G1 时序"].status == "degrade" and "## 剂量响应" in text
+    post = make_df(BY_ID["post_labelled"], 0, n=2500)
+    s2, _ = run_fixed(post, sem, session_kw=FAST)
+    assert "service_score" not in s2.covariates

@@ -40,7 +40,7 @@ def data_dictionary(df, semantic):
         if m is None:
             continue
         desc = m.get("definition") or m["name"]
-        lines.append(f"- {c}｜{m['name']}：{desc}｜{m['period']}")
+        lines.append(f"- {c}｜{m['name']}：{desc}｜{m.get('period') or '未标注'}")
     return "\n".join(lines)
 
 

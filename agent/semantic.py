@@ -23,4 +23,4 @@ class SemanticLayer:
 
     def period(self, column):
         m = self.by_column.get(column)
-        return None if m is None else m["period"]
+        return None if m is None else m.get("period")
