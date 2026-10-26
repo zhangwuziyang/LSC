@@ -56,7 +56,8 @@ def _mentions(text, *words):
 
 # A caveat counts only if it says the check failed. Keyword matching alone passed answers
 # such as "placebo 也通过，因此点估计可作为结论" (DeepSeek, gates hidden).
-_FAILED = ("未通过", "不通过", "没有通过", "不成立", "违背", "偏离", "降级", "敏感性区间")
+_FAILED = ("未通过", "不通过", "没有通过", "不成立", "违背", "偏离", "降级", "敏感性区间",
+           "趋势性混杂", "趋势混杂", "前期趋势差异", "不稳健")
 _CLAIMS_PASS = re.compile(r"(placebo|平行趋势)[^。；;\n]{0,12}?(也|均|都)?(通过|成立)")
 
 

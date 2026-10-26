@@ -103,6 +103,13 @@ def test_no_gates_ablation_hides_verdicts_but_keeps_them_for_grading():
     assert not checks["no_post_treatment_covariate"] and not checks["all_numbers_verified"]
 
 
+def _maybe_json(text):
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return text
+
+
 class FakeOpenAIClient:
     """OpenAI-style client (DeepSeek) playing back a fixed list of turns."""
 
@@ -114,7 +121,7 @@ class FakeOpenAIClient:
     def _create(self, **kw):
         assert kw["messages"][0]["role"] == "system" and kw["tools"][0]["type"] == "function"
         tail = [m for m in kw["messages"] if m["role"] == "tool"]
-        self.seen.append([json.loads(m["content"]) for m in tail])
+        self.seen.append([_maybe_json(m["content"]) for m in tail])
         step = self.script.pop(0)
         if isinstance(step, str):
             msg = NS(content=step, tool_calls=None, reasoning_content=None)
@@ -166,3 +173,39 @@ def test_third_party_providers_run_the_same_tools(provider):
     assert run.stop_reason == "stop"
     assert run.trace[0]["gate"]["status"] == "block" and run.trace[1]["is_error"]
     assert all(task.checks(run).values())
+
+
+def test_code_baseline_runs_code_in_a_sandbox_without_keys(monkeypatch):
+    from agent.code_baseline import grade_code_run, run_code_baseline
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret-should-not-leak")
+    task = {t.id: t for t in make_tasks(500)}["post_treatment"]
+    code = ("import os, pandas as pd\n"
+            "df = pd.read_csv('data.csv')\n"
+            "print(len(df), 'post_orders' in df.columns, os.environ.get('DEEPSEEK_API_KEY'))")
+    client = FakeOpenAIClient([[("run_python", {"code": code})],
+                               "post_orders 是干预后变量，已排除。效应约为 -0.2。"])
+    run = run_code_baseline(task.df, task.question, provider="deepseek", client=client)
+    assert run.trace[0]["output"].startswith("500 True None")   # data present, key absent
+    checks = grade_code_run("post_treatment", run)
+    assert checks == {"finished_with_report": True, "no_post_treatment_covariate": True}
+
+
+def test_code_baseline_forces_a_final_answer():
+    from agent.code_baseline import run_code_baseline
+    task = make_tasks(300)[0]
+    seen = []
+
+    class Endless(FakeOpenAIClient):
+        def _create(self, **kw):
+            seen.append(kw.get("tool_choice"))
+            if kw.get("tool_choice") == "none":
+                assert kw["messages"][-1]["role"] == "user"
+                return NS(choices=[NS(message=NS(content="结论：效应约为 0.18。", tool_calls=None,
+                                                reasoning_content=None), finish_reason="stop")], usage=None)
+            call = NS(id=f"c{len(seen)}", type="function", function=NS(name="run_python", arguments='{"code": "print(1)"}'))
+            return NS(choices=[NS(message=NS(content="", tool_calls=[call], reasoning_content=None),
+                                  finish_reason="tool_calls")], usage=None)
+
+    run = run_code_baseline(task.df, task.question, provider="deepseek", client=Endless([]), max_turns=6)
+    assert seen[-1] == "none" and run.final_text.startswith("结论") and len(run.code) == 5
+    assert any("还剩 1 次" in e["output"] for e in run.trace)
