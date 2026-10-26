@@ -76,3 +76,19 @@ def test_declines_about_the_asked_dose():
     fake = "16 天组缩短到 10 天为 1.05（95% CI 0.21–1.69），显著。18 天、20 天组样本太少，无法给出可靠结论。"
     real = "现有数据无法可靠回答 16 天以上用户的问题，16 天已进入外推区，不能作为结论。"
     assert not f(fake, 16.0) and f(real, 16.0)
+
+
+def test_g1_unknown_period_degrades():
+    from pathlib import Path
+    s = SemanticLayer(Path(__file__).parents[1] / "agent" / "semantic_layer" / "sim_metrics_v2.yaml")
+    ok, _ = g1_timing(["orders", "refund_rate"], s)
+    blocked, cols = g1_timing(["orders", "service_score"], s)
+    assert ok.status == "degrade" and "refund_rate" in ok.detail
+    assert blocked.status == "block" and cols == ["service_score"]
+
+
+def test_traps_v2_truth_texts():
+    from sim.traps_v2 import BY_ID, truth
+    assert "不能给出可靠" in truth(BY_ID["extrap_low"], {"extrapolation_days": []})       # 3 days is outside the data
+    assert "可以给出估计" in truth(BY_ID["extrap_high"], {"extrapolation_days": [20.0]})
+    assert "过宽" in truth(BY_ID["kink_claim"], {"extrapolation_days": [], "kink_ci": [7.0, 15.0]})

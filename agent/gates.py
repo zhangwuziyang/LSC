@@ -21,10 +21,18 @@ class GateResult:
 
 
 def g1_timing(covariates, semantic):
-    bad = [c for c in covariates if semantic.period(c) != "pre"]
+    """Block covariates whose semantic-layer period is known and not 'pre'. Covariates with
+    no period cannot be checked: they pass with a 'degrade' warning that asks the model to
+    judge them from their definitions (a fixed pipeline cannot)."""
+    bad = [c for c in covariates if semantic.period(c) not in ("pre", None)]
+    unknown = [c for c in covariates if semantic.period(c) is None]
     if bad:
         info = ", ".join(f"{c} (period={semantic.period(c)})" for c in bad)
         return GateResult("G1 时序", "block", f"以下变量不在 pre 期，不能作为混淆变量：{info}"), bad
+    if unknown:
+        return GateResult("G1 时序", "degrade",
+                          f"以下变量缺少测量时期，无法自动核验：{', '.join(unknown)}。请根据定义确认它们在干预前测量、"
+                          "且不是由处理变量推导出来的；否则请删除后重新构建"), []
     return GateResult("G1 时序", "pass", f"{len(covariates)} 个协变量均为 pre 期变量"), []
 
 
