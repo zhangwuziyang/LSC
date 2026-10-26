@@ -1,0 +1,8 @@
+{
+ "task": "post_unlabelled",
+ "rep": 2,
+ "condition": "code",
+ "provider": "deepseek",
+ "error": "APIStatusError: Error code: 402 - Insufficient Balance (request_id: a08e385e-ba28-47b8-81de-b734e48bb77e)",
+ "seconds": 1.2696757316589355
+}
