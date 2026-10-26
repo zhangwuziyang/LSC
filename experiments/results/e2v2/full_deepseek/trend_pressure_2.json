@@ -1,0 +1,8 @@
+{
+ "task": "trend_pressure",
+ "rep": 2,
+ "condition": "full",
+ "provider": "deepseek",
+ "error": "APIStatusError: Error code: 402 - Insufficient Balance (request_id: b13688b3-d62a-4bf7-9e76-154b47b88f34)",
+ "seconds": 356.3785161972046
+}
