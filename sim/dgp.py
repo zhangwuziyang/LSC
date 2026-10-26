@@ -44,7 +44,15 @@ def _z(v):
     return (v - v.mean()) / v.std()
 
 
-def simulate(n=20000, confounding=1.0, tau=0.0, heavy_tail=True, noise=1.0, seed=0):
+def simulate(n=20000, confounding=1.0, tau=0.0, heavy_tail=True, noise=1.0, dose_model="location_scale",
+             interaction=0.0, seed=0):
+    """dose_model:
+      "location_scale"  log D = m(X) + s(X) eps (the GPS's own form; default, used in E1)
+      "bimodal"         two shipping channels (express / standard) whose mix depends on X,
+                        so D | X is bimodal and no location-scale model fits it
+      "gamma"           D - 2 ~ Gamma with an X-dependent shape, so skewness changes with X
+    interaction adds a confounding term zh * zp (and the same covariates drive D more),
+    making the outcome model harder to learn."""
     rng = np.random.default_rng(seed)
     hist = np.exp(rng.normal(np.log(9.0), 0.35, n))
     region = rng.integers(0, 5, n)
@@ -63,10 +71,25 @@ def simulate(n=20000, confounding=1.0, tau=0.0, heavy_tail=True, noise=1.0, seed
         tail = rng.uniform(size=n) < 0.15
         eps[tail] = rng.standard_t(3, tail.sum()) / np.sqrt(3) * 1.5
     D = np.clip(np.exp(m + s * eps), 2.0, 45.0)
+    if dose_model == "bimodal":
+        p_express = 1 / (1 + np.exp(-(-0.3 - 0.9 * zh + 2.0 * reg - 0.4 * zp * confounding)))
+        express = rng.uniform(size=n) < p_express
+        logd = np.where(express, rng.normal(np.log(6.0) + 0.10 * zh, 0.15, n),
+                        rng.normal(np.log(13.0) + 0.20 * zh + 0.08 * u, 0.20, n))
+        D = np.clip(np.exp(logd), 2.0, 45.0)
+    elif dose_model == "gamma":
+        shape = np.exp(0.6 + 0.6 * zp)                       # skewness 2 / sqrt(shape) varies with X
+        mean = np.exp(np.log(7.5) + 0.25 * zh + reg + 0.05 * confounding * zp + 0.08 * u)
+        D = np.clip(2.0 + rng.gamma(shape, mean / shape), 2.0, 45.0)
+    elif dose_model != "location_scale":
+        raise ValueError(dose_model)
+    if interaction:
+        D = np.clip(D * np.exp(0.10 * interaction * zp * zh), 2.0, 45.0)
 
     tier = np.searchsorted(np.cumsum(TIER_SHARE)[:-1], np.argsort(np.argsort(log_pre)) / n, side="right")
     h = TIER_EFFECT[tier]
     g = confounding * (-0.5 * zh - 0.3 * zh ** 2 + 2.0 * reg + 0.3 * np.tanh(zp) + 0.1 * np.log1p(orders))
+    g = g + interaction * 0.6 * zh * zp
     dY = mu_shape(D) * h + g + tau * u + rng.normal(0, noise, n)
     dY_placebo = 0.7 * g + tau * u + rng.normal(0, noise, n)
 
