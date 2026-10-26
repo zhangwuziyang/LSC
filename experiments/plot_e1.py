@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 RES = Path(__file__).parent / "results"
+PAPER = "--paper" in __import__("sys").argv  # no figure title, for the LaTeX paper
 # Categorical slots 1-4 of the validated reference palette, in fixed order.
 COLORS = {"E0+M0 (original)": "#eb6834", "E0+M1": "#eda100",
           "E1+M0": "#1baf7a", "E1+M1 (proposed)": "#2a78d6"}
@@ -65,7 +66,8 @@ def main():
             style(a)
         handles, labels = axes[0].get_legend_handles_labels()
         fig.legend(handles, labels, loc="outside lower center", ncol=5, frameon=False, fontsize=8)
-        fig.suptitle(f"E1 · scenario: {scen}", color=INK)
+        if not PAPER:
+            fig.suptitle(f"E1 · scenario: {scen}", color=INK)
         for ext in ("png", "pdf"):
             fig.savefig(RES / f"e1_{scen}.{ext}", dpi=160)
         plt.close(fig)
