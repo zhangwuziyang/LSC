@@ -1,6 +1,9 @@
 \documentclass[sigconf,anonymous,review]{acmart}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{tikz}
+\usepackage{amsthm}
+\newtheorem{proposition}{Proposition}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric}
 
 % Facts about the motivating internal analysis. They need the company's written approval
@@ -42,7 +45,7 @@ We make three contributions.
 \begin{enumerate}
 \item \textbf{Method.} A doubly robust GPS-DID procedure for heavy-tailed continuous treatments with valid inference: a heteroskedastic gradient-boosting GPS on log dose, a cross-fitted pseudo-outcome estimator~\cite{kennedy2017nonparametric}, undersmoothing plus a subsampling variance inflation that repairs the undercoverage of the multiplier bootstrap, and overlap and balance thresholds calibrated in simulation (\S\ref{sec:method}).
 \item \textbf{System.} An LLM agent in which the model plans and explains but never computes; every number comes from a deterministic engine, and each analysis step is guarded by an executable gate that can block or downgrade the conclusion (\S\ref{sec:system}).
-\item \textbf{Evidence.} A semi-synthetic benchmark with known ground truth, including analysis tasks seeded with common errors, on which we measure estimator accuracy, gate operating characteristics, and agent behaviour with and without gates and against a code-writing baseline; and a case study on public marketplace data (\S\ref{sec:experiments}).
+\item \textbf{Evidence.} A~semi-synthetic benchmark with known ground truth, including analysis tasks seeded with common errors, to measure estimator accuracy, gate operating characteristics, and agent behaviour with and without gates and against a code-writing baseline; and a case study on public marketplace data (\S\ref{sec:experiments}).
 \end{enumerate}
 
 %=======================================================================================
@@ -69,14 +72,38 @@ Units $i=1,\dots,n$ are observed in three windows: a pre-period (covariates $X_i
 \textbf{GPS.} We model $\log D = m(X)+s(X)\,\varepsilon$, with $m$ and $s$ fit by LightGBM~\cite{ke2017lightgbm} ($s$ on log squared out-of-fold residuals, more heavily regularized) and the density of $\varepsilon$ estimated by a kernel density mixed with 1\% Student-$t_3$ so that it stays positive beyond the observed range. Then
 \[\pi(d\mid x)=\frac{f_\varepsilon\big((\log d-m(x))/s(x)\big)}{s(x)\,d}.\] The tail component and stronger regularization of $s$ raised the cross-fitted log-likelihood in simulation from $-2.14$ to about $-1.91$, against an oracle $-1.89$. The regularization strength is chosen among presets by cross-fitted log-likelihood; on the smaller case-study panel this matters (\S\ref{sec:olist}).
 
-\textbf{Doubly robust dose response.} With cross-fitted (5-fold) nuisances---the outcome model $m(x,d)=\mathbb{E}[\Delta Y\mid X=x,D=d]$ and the GPS---we form
-\begin{gather}
-\xi_i=\frac{\Delta Y_i-\hat m(X_i,D_i)}{\hat\pi(D_i\mid X_i)}\,\hat\varpi(D_i)+\frac1n\sum_j\hat m(X_j,D_i),\\
-\hat\varpi(d)=\frac1n\sum_j\hat\pi(d\mid X_j),
-\end{gather}
+\textbf{Doubly robust dose response.} We cross-fit (5 folds) two nuisances, the GPS and the outcome model $m$ (the conditional mean of $\Delta Y$ given $X$ and $D$), and form
+\begin{align}
+\xi_i&=\frac{\Delta Y_i-\hat m(X_i,D_i)}{\hat\pi(D_i\mid X_i)}\,\hat\varpi(D_i)+\frac1n\sum_j\hat m(X_j,D_i),\\
+\hat\varpi(d)&=\frac1n\sum_j\hat\pi(d\mid X_j),
+\end{align}
 and estimate $\mu(d)$ by local linear regression of $\xi$ on $D$~\cite{kennedy2017nonparametric}. Stabilized weights above their 99.9th percentile are capped.
 
-\textbf{Inference.} The multiplier bootstrap on $\xi$ treats the pseudo-outcomes as fixed. In simulation its standard error was 18\% too small and pointwise 95\% coverage 86--90\%. Two corrections restore coverage. \emph{Undersmoothing}: the bandwidth is half the leave-one-out CV optimum; CV bandwidths left smoothing bias at the kink (60--80\% coverage). \emph{Subsampling variance inflation}: we refit the whole estimator, nuisances included, on 12 half-size subsamples drawn without replacement, estimate the full-sample variance as $\mathrm{Var}(\hat\mu_b)/(n/b-1)$, and rescale the bootstrap draws by the median ratio to the multiplier variance (floored at 1). Quarter-size subsamples over-inflate (coverage 99\%) because their nuisance fits are worse; half-size subsamples give 96.8\%. Uniform bands use the sup-$t$ construction; gains and contrasts are computed draw by draw. When units recur (e.g.\ a seller in several months), folds, bootstrap weights and subsamples are drawn by cluster.
+\textbf{Inference.} The multiplier bootstrap on $\xi$ treats the pseudo-outcomes as fixed. In simulation its standard error was 18\% too small and pointwise 95\% coverage 86--90\%. Two corrections restore coverage. \emph{Undersmoothing}: the bandwidth is half the leave-one-out CV optimum; CV bandwidths left smoothing bias at the kink (60--80\% coverage). \emph{Subsampling variance inflation}: we refit the whole estimator, nuisances included, on 12 half-size subsamples drawn without replacement, estimate the full-sample variance as $\mathrm{Var}(\hat\mu_b)/(n/b-1)$, and rescale the bootstrap draws by the median ratio to the multiplier variance (floored at 1). Quarter-size subsamples over-inflate (coverage 99\%) because their nuisance fits are worse; half-size subsamples give 96.8\%. Uniform bands use the sup-$t$ construction; gains and contrasts are computed draw by draw. When units recur (e.g.\ a seller in several months), folds, bootstrap weights and subsamples are drawn by cluster. The following statement explains both why the multiplier bootstrap undercovers and why the half-size choice is conservative.
+
+\begin{proposition}[informal]\label{prop:vif}
+At a fixed dose $d$ and bandwidth, write the estimator on $n$ units as $T_n=\mu(d)+\frac1n\sum_{i}\psi(Z_i)+\eta_n$, where $\psi$ is the linear (influence-function) term and $\eta_n$ the error contributed by estimating the nuisances on those $n$ units, with $\mathrm{Var}(\eta_n)=v(n)$ non-increasing in $n$. The multiplier bootstrap on fixed $\xi$ estimates $\sigma_\psi^2/n$ only, so it understates $\mathrm{Var}(T_n)\approx\sigma_\psi^2/n+v(n)$. Let $T_b$ be the estimator refit on a subsample of size $b$ drawn without replacement. For the linear term the finite-population identity gives $\mathrm{Var}^*\big(\tfrac1b\sum_{i\in S}\psi(Z_i)\big)=s_\psi^2(\tfrac1b-\tfrac1n)$; if $\eta_b$ is approximately uncorrelated with it, then
+\[\hat V_b=\frac{\mathrm{Var}^*(T_b)}{n/b-1}\approx\frac{\sigma_\psi^2}{n}+\frac{v(b)}{n/b-1}.\]
+With $b=n/2$, $\hat V_b\approx\sigma_\psi^2/n+v(n/2)\ge\mathrm{Var}(T_n)$: the estimate is conservative by $v(n/2)-v(n)$, which vanishes as the nuisance error does.
+\end{proposition}
+
+With $b=n/4$ the remainder enters as $v(n/4)/3$; in our simulations it exceeded $v(n)$ (coverage 99\%), consistent with nuisance error that grows faster than linearly as the sample shrinks. We use the scalar median ratio $\hat V_b/\widehat{\mathrm{Var}}_{\mathrm{mult}}$ across doses, floored at 1, so that the correlation structure of the bootstrap draws is preserved.
+
+\begin{figure}[t]
+\small
+\fbox{\begin{minipage}{0.96\columnwidth}
+\textbf{Algorithm 1: GPS-DID with valid inference}\\[2pt]
+\textbf{Input:} $(X_i,D_i,\Delta Y_i)$, optional clusters, dose grid $\mathcal D$, reference $d_0$.
+\begin{enumerate}\setlength\itemsep{1pt}
+\item Choose the GPS preset by cross-fitted log-likelihood.
+\item For each of $K$ (cluster-)folds: fit $\hat\pi$ and $\hat m$ on the other folds; compute $\hat\pi(D_i\mid X_i)$, $\hat\varpi(D_i)$, $\frac1n\sum_j\hat m(X_j,D_i)$ on the held-out fold.
+\item Form $\xi_i$ (capping weights at their 99.9th percentile); $h\leftarrow\frac12 h_{\mathrm{CV}}$; $\hat\mu(d)$ = local linear fit of $\xi$ on $D$ for $d\in\mathcal D$.
+\item Multiplier bootstrap of step 3 ($B$ draws, cluster-level weights).
+\item Refit steps 2--3 on 12 half-size (cluster) subsamples at fixed $h$; rescale the draws by $\max\{1,\mathrm{median}_d\,\hat V_b(d)/\widehat{\mathrm{Var}}_{\mathrm{mult}}(d)\}$.
+\item Report $\hat\theta(d_0,d)$ with pointwise intervals and sup-$t$ band, ESS grades, kink (two-segment fit on $\xi$), gains; repeat steps 2--5 on the placebo outcome for G4 and the sensitivity interval.
+\end{enumerate}
+\end{minipage}}
+\end{figure}
 
 \textbf{Kink.} We fit a two-segment linear model directly to $(D_i,\xi_i)$ over a grid of breakpoints and bootstrap it, which avoids the bandwidth blurring the kink.
 
@@ -113,7 +140,7 @@ and estimate $\mu(d)$ by local linear regression of $\xi$ on $D$~\cite{kennedy20
 \draw[arr] (o) -- (b); \draw[arr] (b) -- (f); \draw[arr] (f) -- (e); \draw[arr] (e) -- (p); \draw[arr] (p) -- (r);
 \draw[arr] (b) -- (g1); \draw[arr] (f) -- (g2); \draw[arr] (e) -- (g3); \draw[arr] (p) -- (g4); \draw[arr] (r) -- (g5);
 \draw[arr, dashed] (s) |- (b);
-\draw[arr, dashed] (g1.east) -- ++(3mm,0) |- node[pos=0.25, right, align=left]{block /\\downgrade} (o.east);
+\draw[arr, dashed] (g1.east) -- ++(3mm,0) |- (o.east) node[pos=0.25, right=7mm, align=left]{block /\\downgrade};
 \draw[arr, dashed] (g5.east) -- ++(3mm,0) |- (o.east);
 \end{tikzpicture}
 \caption{Analysis flow. The model (blue) only plans and writes text; each engine step is followed by an executable gate (orange) that can block the step or downgrade the conclusion.}
@@ -123,7 +150,7 @@ and estimate $\mu(d)$ by local linear regression of $\xi$ on $D$~\cite{kennedy20
 \begin{table}[t]
 \caption{Gates.}\label{tab:gates}
 \small
-\begin{tabular}{@{}p{1.25cm}p{3.6cm}p{2.6cm}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.35cm}>{\raggedright\arraybackslash}p{3.55cm}>{\raggedright\arraybackslash}p{2.75cm}@{}}
 \toprule
 Gate & Check & On failure \\
 \midrule
@@ -147,7 +174,7 @@ Target $\theta(10,d)$ on $d\in[6,16]$, 20 replications per scenario (Table~\ref{
 
 \begin{table}[t]
 \caption{E1: $\theta(10,d)$ on $d\in[6,16]$, 20 replications.}\label{tab:e1}
-\small
+\small\setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{@{}llrrrr@{}}
 \toprule
 Scenario & Method & RMSE & Cover. & Band & Width \\
@@ -203,12 +230,34 @@ Total & \textbf{15} & \textbf{15} & 5 & 5 \\
 \end{tabular}
 \end{table}
 
-With gates the model answered every trap correctly; without them it answered 2 of 12 trap tasks correctly, whether it used our engine or wrote its own code (Table~\ref{tab:e2b}). The failures differ. With gates hidden, the model followed the user's request to control for the post-treatment variable---once while noting that this could bias the estimate---and stated that the placebo test had passed when it had not. Writing its own code, it usually recognized the post-treatment variable from the data dictionary, but used the placebo outcome as a control in at least 13 of 15 runs instead of as a test, and always reported narrow-interval gains for doses with almost no data. Removing the semantic layer did not change correctness but roughly doubled lookups and tokens. The code baseline was 10--40$\times$ more expensive (160k--660k input tokens and 6--31 minutes per run, against 26k--53k and 4--7 minutes). The blinded judge agreed with our automatic graders on 57 of 60 answers (all 45 agent runs); the three disagreements were code-baseline answers the judge graded more strictly. Qwen3.8-Max passed all 15 full-system runs; its other conditions were interrupted by a provider access error.
+With gates the model answered every trap correctly; without them it answered 2 of 12 trap tasks correctly, whether it used our engine or wrote its own code (Table~\ref{tab:e2b}). The failures differ. With gates hidden, the model followed the user's request to control for the post-treatment variable---once while noting that this could bias the estimate---and stated that the placebo test had passed when it had not. Writing its own code, it usually recognized the post-treatment variable from the data dictionary, but used the placebo outcome as a control in at least 13 of 15 runs instead of as a test, and always reported narrow-interval gains for doses with almost no data. Removing the semantic layer did not change correctness but roughly doubled lookups and tokens. The code baseline was 10--40$\times$ more expensive (160k--660k input tokens and 6--31 minutes per run, against 26k--53k and 4--7 minutes). Table~\ref{tab:quotes} gives representative answers (translated from Chinese). The blinded judge agreed with our automatic graders on 57 of 60 answers (all 45 agent runs); the three disagreements were code-baseline answers the judge graded more strictly. Qwen3.8-Max passed all 15 full-system runs; its other conditions were interrupted by a provider access error.
+
+\begin{table}[t]
+\caption{Representative E2b answers (DeepSeek-V4-Pro, translated).}\label{tab:quotes}
+\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{6.3cm}@{}}
+\toprule
+Condition & Answer \\
+\midrule
+Gates hidden, trend & ``All gates passed and the placebo test also passed, so the point estimates above can serve as the conclusion.'' (the placebo test had failed) \\
+Gates hidden, post-treatment & ``After controlling for all available covariates (including post-period orders)\dots the effect at 12 days is $-0.108$.'' \\
+Code, sparse dose & ``Shortening 19-day users to 10 days adds about 0.61 GMV per day (95\% CI 0.55--0.66).'' (19 days has almost no support) \\
+Full system, sparse dose & ``No credible conclusion can be given for shortening 19 to 10 days\dots the 19-day dose is graded extrapolation and cannot be used as a conclusion.'' \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Case study: Olist marketplace}\label{sec:olist}
 We apply the gated pipeline to the public Olist data~\cite{olist2018} (96k delivered orders, 2016--2018; median delivery 10.2 days, P90 23, skewness 3.8). Only 3\% of customers buy twice, so we work at the seller level: for each treatment month $T$ from June 2017 to May 2018 the dose is a seller's mean delivery days in $T$; covariates (pre-period GMV, orders, delivery days, share of same-state buyers, price, freight ratio, state, category, tenure, calendar month) are measured in $T{-}3..T{-}2$; the outcome is daily GMV in $T{+}1..T{+}3$ minus $T{-}3..T{-}1$; the placebo outcome is $T{-}1$ minus $T{-}3..T{-}2$. Stacking months gives 4,856 seller-months from 1,102 sellers (8,270 / 1,660 when sellers with a single order in $T$ are kept); all resampling is by seller. The default GPS preset, tuned at $n=20{,}000$, overfit this panel and \emph{worsened} weighted balance (0.23 $\to$ 0.32) through a single weight of 704; the preset chosen by cross-fitted likelihood passes G2 (0.126).
 
-The placebo test fails in both specifications (maximum deviation 11.0 and 6.7): sellers with slower deliveries were already on different GMV paths, so parallel trends are not credible. The system downgrades the analysis, reports only sensitivity intervals, and withholds a kink finding; every interval for $\theta(10,d)$, $d\in[9,19]$, covers zero. The industry estimator on the same panel reports intuitive and significant losses from slow delivery (e.g.\ $d=18$: $-6.3$, 95\% CI $[-9.9,-2.8]$; with single-order sellers, $d=22$: $-3.9$ $[-5.9,-1.5]$), a conclusion resting on an assumption the data contradict and on intervals that ignore within-seller correlation. Both estimators also find that the fastest sellers (6 days) grew less than those at 10 days, a pattern consistent with selection rather than causation.
+The placebo test fails in both specifications (Figure~\ref{fig:e3}) (maximum deviation 11.0 and 6.7): sellers with slower deliveries were already on different GMV paths, so parallel trends are not credible. The system downgrades the analysis, reports only sensitivity intervals, and withholds a kink finding; every interval for $\theta(10,d)$, $d\in[9,19]$, covers zero. The industry estimator on the same panel reports intuitive and significant losses from slow delivery (e.g.\ $d=18$: $-6.3$, 95\% CI $[-9.9,-2.8]$; with single-order sellers, $d=22$: $-3.9$ $[-5.9,-1.5]$), a conclusion resting on an assumption the data contradict and on intervals that ignore within-seller correlation. Both estimators also find that the fastest sellers (6 days) grew less than those at 10 days, a pattern consistent with selection rather than causation.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/e3_olist.pdf}
+\caption{Olist, sellers with $\ge$3 orders in $T$. The gated estimate (blue) with its 95\% interval and the $M=1$ sensitivity interval reported after the placebo test fails, against the industry estimator (orange), which reports significant losses at 16--20 days.}
+\label{fig:e3}
+\end{figure}
 
 %=======================================================================================
 \section{Discussion and Limitations}
