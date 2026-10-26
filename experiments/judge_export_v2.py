@@ -20,10 +20,13 @@ def main():
     ap.add_argument("--key", required=True)
     ap.add_argument("--seed", type=int, default=20261027)
     args = ap.parse_args()
-    items = []
+    items, skipped = [], []
     for folder in sorted(p for p in ROOT.iterdir() if p.is_dir() and p.name != "reference"):
         for f in sorted(folder.glob("*.json")):
             rec = json.loads(f.read_text())
+            if rec.get("error"):  # API failures are rerun, never judged
+                skipped.append(f"{folder.name}/{f.name}")
+                continue
             task = BY_ID[rec["task"]]
             ref = json.loads((ROOT / "reference" / f"{rec['task']}_{rec['rep']}.json").read_text())
             items.append(dict(folder=folder.name, task=rec["task"], rep=rec["rep"], question=task.question,
@@ -39,6 +42,9 @@ def main():
                                 ensure_ascii=False) + "\n")
     pd.DataFrame(key).to_csv(args.key, index=False)
     print(f"{len(items)} items")
+    print(pd.DataFrame(key).groupby("folder").size().to_string())
+    if skipped:
+        print(f"skipped {len(skipped)} runs with API errors: {', '.join(skipped)}")
 
 
 if __name__ == "__main__":
