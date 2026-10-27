@@ -1,0 +1,8 @@
+{
+ "task": "post_explicit",
+ "rep": 1,
+ "condition": "code",
+ "provider": "qwen",
+ "error": "PermissionDeniedError: Error code: 403 - {'code': 'AccessDenied.Unpurchased', 'message': 'Access to model denied. Please make sure you are eligible for using the model.', 'request_id': 'ceb120df-591e-9d7e-8016-f12dbe220a3f'}",
+ "seconds": 363.86224699020386
+}
