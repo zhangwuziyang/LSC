@@ -129,8 +129,10 @@ class AnalysisSession:
         s_lo, s_hi, bd = sensitivity(self.est["theta"], self.est["se"], pl_point, M=1.0)
         self.pl = dict(passed=passed, point=pl_point, sens_lo=s_lo, sens_hi=s_hi, breakdown=bd)
         ints = [i for i, d in enumerate(self.grid) if d % 1 == 0 and d != self.d0]
-        return self._shown({"gate": self._show(g4), "placebo_passed": passed or not self.gates_enabled,
-                "sensitivity_M1": [{"d": float(self.grid[i]), "lo": _r(s_lo[i]), "hi": _r(s_hi[i]),
+        out = {"gate": self._show(g4)}
+        if self.gates_enabled:
+            out["placebo_passed"] = passed
+        return self._shown({**out, "sensitivity_M1": [{"d": float(self.grid[i]), "lo": _r(s_lo[i]), "hi": _r(s_hi[i]),
                                     "breakdown_M": _r(bd[i], 3) if np.isfinite(bd[i]) else None}
                                    for i in ints]})
 
@@ -138,11 +140,11 @@ class AnalysisSession:
         if self.pl is None:
             raise StepError("call run_placebo first")
         result = self.result()
-        if not self.gates_enabled:  # the model was told everything passed; so is the report
-            result = {**result, "placebo_passed": True,
-                      "gates": [type(g)(g.gate, "pass", "（检查已关闭）") for g in result["gates"]],
-                      "curve": {**result["curve"], "grade": ["trusted"] * len(result["curve"]["grade"])},
-                      "gains": [{**g, "grade": "trusted"} for g in result["gains"]]}
+        if not self.gates_enabled:  # checks are reported as not performed, never as passed
+            result = {**result, "placebo_passed": True,  # no placebo verdict: no degraded layout
+                      "gates": [type(g)(g.gate, "not_checked", "该检查未执行") for g in result["gates"]],
+                      "curve": {**result["curve"], "grade": ["unchecked"] * len(result["curve"]["grade"])},
+                      "gains": [{**g, "grade": "unchecked"} for g in result["gains"]]}
         text, g5 = render(result, narrative, extra_allowed=self.shown)
         self._set_gate(g5)
         ok = g5.status == "pass" or not self.gates_enabled
@@ -162,7 +164,7 @@ class AnalysisSession:
         return out
 
     def _show(self, g):
-        return g.to_dict() if self.gates_enabled else {"gate": g.gate, "status": "pass", "detail": "（检查已关闭）"}
+        return g.to_dict() if self.gates_enabled else {"gate": g.gate, "status": "not_checked", "detail": "该检查未执行"}
 
     def _set_gate(self, g):
         self.gates[g.gate] = g

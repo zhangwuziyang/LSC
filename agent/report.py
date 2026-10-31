@@ -3,12 +3,12 @@ import numpy as np
 
 from .gates import g5_numbers
 
-GRADE_CN = {"trusted": "可信", "caution": "谨慎", "extrapolation": "外推"}
+GRADE_CN = {"trusted": "可信", "caution": "谨慎", "extrapolation": "外推", "unchecked": "未评估"}
 # Kink CIs wider than this are not reported as a finding (diag_kink_scaling: mean CI width
 # 8.1 days at n=20k, 6.0 at n=100k).
 KINK_MAX_CI = 3
 
-STATUS_CN = {"pass": "通过", "degrade": "降级", "block": "阻断"}
+STATUS_CN = {"pass": "通过", "degrade": "降级", "block": "阻断", "not_checked": "未检查"}
 
 
 def _numbers(obj):
