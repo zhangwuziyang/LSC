@@ -1,0 +1,8 @@
+{
+ "task": "kink_claim",
+ "rep": 1,
+ "condition": "code",
+ "provider": "deepseek",
+ "error": "APIStatusError: Error code: 402 - Insufficient Balance (request_id: 0235dae8-9b1f-457b-a275-d80fba0166d1)",
+ "seconds": 626.6497056484222
+}
