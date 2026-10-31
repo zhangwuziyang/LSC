@@ -74,7 +74,10 @@ class AgentRun:
     session: AnalysisSession = None
     stop_reason: str = None
     turns: int = 0
-    usage: dict = field(default_factory=lambda: {"input_tokens": 0, "output_tokens": 0})
+    # Anthropic-style APIs report cached input separately (input_tokens excludes it); OpenAI-style
+    # prompt_tokens include cache hits, which DeepSeek also reports as prompt_cache_hit_tokens.
+    usage: dict = field(default_factory=lambda: {"input_tokens": 0, "output_tokens": 0,
+                                                 "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0})
 
 
 def _execute(session, name, args):
@@ -242,6 +245,7 @@ def _loop_openai_compat(run, question, client, max_turns, model, system=SYSTEM, 
         usage = getattr(response, "usage", None)
         run.usage["input_tokens"] += getattr(usage, "prompt_tokens", 0) or 0
         run.usage["output_tokens"] += getattr(usage, "completion_tokens", 0) or 0
+        run.usage["cache_read_input_tokens"] += getattr(usage, "prompt_cache_hit_tokens", 0) or 0
         calls = msg.tool_calls or []
         if not calls:
             run.final_text = msg.content or ""

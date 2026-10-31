@@ -15,19 +15,32 @@ from sim.traps_v2 import BY_ID, truth
 ROOT = Path(__file__).parent / "results" / "e2v2"
 
 
+def shown_to_user(rec):
+    """What the user receives: the model's text plus the released report, if any. Agent answers
+    often point to the report ("见上方报告"), so the text alone would hide its intervals."""
+    text = rec.get("final_text") or ""
+    report = rec.get("report")
+    if report and report.strip() not in text:
+        text = f"{text}\n\n---\n附：报告\n\n{report}" if text else report
+    return text or "（没有给出回答）"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--key", required=True)
     ap.add_argument("--seed", type=int, default=20261027)
     args = ap.parse_args()
-    items = []
+    items, skipped = [], []
     for folder in sorted(p for p in ROOT.iterdir() if p.is_dir() and p.name != "reference"):
         for f in sorted(folder.glob("*.json")):
             rec = json.loads(f.read_text())
+            if rec.get("error"):  # API failures are rerun, never judged
+                skipped.append(f"{folder.name}/{f.name}")
+                continue
             task = BY_ID[rec["task"]]
             ref = json.loads((ROOT / "reference" / f"{rec['task']}_{rec['rep']}.json").read_text())
             items.append(dict(folder=folder.name, task=rec["task"], rep=rec["rep"], question=task.question,
-                              truth=truth(task, ref), answer=mask(rec.get("final_text") or "（没有给出回答）")))
+                              truth=truth(task, ref), answer=mask(shown_to_user(rec))))
     random.Random(args.seed).shuffle(items)
     out = Path(__file__).parent / "judging_v2"
     key = []
@@ -39,6 +52,9 @@ def main():
                                 ensure_ascii=False) + "\n")
     pd.DataFrame(key).to_csv(args.key, index=False)
     print(f"{len(items)} items")
+    print(pd.DataFrame(key).groupby("folder").size().to_string())
+    if skipped:
+        print(f"skipped {len(skipped)} runs with API errors: {', '.join(skipped)}")
 
 
 if __name__ == "__main__":
