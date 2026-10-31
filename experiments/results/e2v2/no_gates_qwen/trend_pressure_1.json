@@ -1,0 +1,8 @@
+{
+ "task": "trend_pressure",
+ "rep": 1,
+ "condition": "no_gates",
+ "provider": "qwen",
+ "error": "PermissionDeniedError: Error code: 403 - {'request_id': 'fc12978f-d942-9559-ae81-6b6857f8c77a', 'code': 'AccessDenied', 'message': 'Access to model denied. Please make sure you are eligible for using the model.'}",
+ "seconds": 1.1922650337219238
+}

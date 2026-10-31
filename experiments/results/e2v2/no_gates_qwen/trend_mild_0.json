@@ -1,0 +1,8 @@
+{
+ "task": "trend_mild",
+ "rep": 0,
+ "condition": "no_gates",
+ "provider": "qwen",
+ "error": "PermissionDeniedError: Error code: 403 - {'code': 'AccessDenied.Unpurchased', 'message': 'Access to model denied. Please make sure you are eligible for using the model.', 'request_id': '4a9cb710-d43f-9fb2-8ad3-f0e1afc854e2'}",
+ "seconds": 1.3813586235046387
+}

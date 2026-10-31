@@ -1,0 +1,8 @@
+{
+ "task": "leak_unlabelled",
+ "rep": 1,
+ "condition": "no_gates",
+ "provider": "qwen",
+ "error": "PermissionDeniedError: Error code: 403 - {'code': 'AccessDenied.Unpurchased', 'message': 'Access to model denied. Please make sure you are eligible for using the model.', 'request_id': '8d8decc3-cce3-9d59-b0fe-fd8a2a66e566'}",
+ "seconds": 1.405341625213623
+}
