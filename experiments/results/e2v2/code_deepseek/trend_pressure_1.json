@@ -1,0 +1,277 @@
+{
+ "task": "trend_pressure",
+ "rep": 1,
+ "condition": "code",
+ "provider": "deepseek",
+ "final_text": "基于现有数据，**不能直接给出一个可靠的“妥投天数每多一天，GMV 少多少”的因果结论**。问题在于存在很强的混杂因素——**历史平均妥投天数（`log_hist_days`）**：它与当期妥投天数 `D` 高度相关（r≈0.641），同时与 GMV 变化 `dY` 也明显负相关（r≈-0.399）。因此，未调整的“少多少”主要是历史快慢用户差异，不能解释为妥投天数的因果效应。\n\n## 主要估计结果\n\n| 模型 | 每多一天妥投对 `dY` 的影响 | 95% CI | 解释 |\n|---|---:|---:|---|\n| 简单 OLS，不控制混杂 | **-0.0792**（se 0.0033） | -0.084 ~ -0.074 | 相关关系，不是因果 |\n| 控制 `log_hist_days` + 地区 + 价值档 + 其他 pre 变量 | **-0.0008**（se 0.0051） | -0.011 ~ +0.009 | 接近 0，统计不显著 |\n| 灵活控制 `log_hist_days`（20分箱）+ 其他 pre 变量 | **+0.0212**（se 0.0051） | +0.011 ~ +0.031 | 符号反转为正 |\n| 双机器学习 GBM 控制所有 pre 混杂 | **+0.0377**（se 0.0050） | +0.028 ~ +0.048 | 符号反转为正 |\n\n注：`dY` 是“post 期日均 GMV 减 pre 期日均 GMV”的绝对变化量，不是对数变化，因此上面的系数单位是“每多一天妥投，`dY` 变化多少个单位”。\n\n## 结论\n\n1. **如果只看简单相关**：妥投天数每多一天，`dY` 平均低 **0.079 单位**（95% CI：-0.084 ~ -0.074）。但这个数字会被历史妥投天数严重混淆，不能当作因果效应。\n\n2. **控制历史妥投天数后**，当期妥投天数对 GMV 变化的影响从负变成接近 0，甚至转为微弱正相关。最稳健的线性调整结果是 **-0.001 单位/天**，95% 置信区间 **[-0.011, +0.009]**，统计上不显著；更灵活控制历史妥投的模型给出 **+0.02 ~ +0.04 单位/天**。\n\n3. 因此，数据**不支持“妥投天数每多一天，GMV 显著减少”的结论**。稳妥的说法是：在控制历史妥投水平和其他 pre 期变量后，没有可靠的证据表明妥投天数会对 GMV 变化产生明确负向因果效应；即使有估计，也接近 0 或轻微为正，且模型选择对结果方向影响很大。\n\n4. 若需要用于业务决策，建议不要把 -0.079 当作因果效应使用。若要获得更可信的因果估计，需要用更外生的冲击（例如物流配送策略变动、自然实验或工具变量），而本数据中 `log_hist_days` 作为工具变量的外生性也不理想。",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf = pd.read_csv('data.csv')\nprint(df.shape)\nprint(df.columns.tolist())\nprint(df.head())\nprint(df.dtypes)\nprint(df.describe())\n"
+   },
+   "is_error": false,
+   "output": "(20000, 11)\n['log_hist_days', 'region', 'log_pre_gmv', 'orders', 'cat_share', 'tenure', 'D', 'dY', 'dY_placebo', 'tier', 'post_orders']\n   log_hist_days  region  log_pre_gmv  ...  dY_placebo  tier  post_orders\n0       2.168728     4.0     2.519891  ...   -0.809319     0          2.0\n1       2.098183     0.0     2.995503  ...    0.202134     1          4.0\n2       1.984259     0.0     3.901227  ...   -1.453024     2          2.0\n3       2.801944     0.0     3.308899  ...   -1.110704     1          1.0\n4       2.069948     4.0     1.569825  ...   -0.644272     0          0.0\n\n[5 rows x 11 columns]\nlog_hist_days    float64\nregion           float64\nlog_pre_gmv      float64\norders           float64\ncat_share        float64\ntenure           float64\nD                float64\ndY               float64\ndY_placebo       float64\ntier               int64\npost_orders      float64\ndtype: object\n       log_hist_days        region  ...         tier   post_orders\ncount   20000.000000  20000.000000  ...  20000.00000  20000.000000\nmean        2.196208      1.997200  ...      1.05000      3.851950\nstd         0.350323      1.415978  ...      0.97342      2.147152\nmin         0.945636      0.000000  ...      0.00000      0.000000\n25%         1.956850      1.000000  ...      0.00000      2.000000\n50%         2.196630      2.000000  ...      1.00000      4.000000\n75%         2.433729      3.000000  ...      2.00000      5.000000\nmax         3.513186      4.000000  ...      3.00000     15.000000\n\n[8 rows x 11 columns]\n"
+  },
+  {
+   "turn": 1,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\ndf = pd.read_csv('data.csv')\nprint(df[['D','dY','log_pre_gmv','orders','tenure','log_hist_days']].corr())\n# simple OLS\nX = sm.add_constant(df['D'])\nm = sm.OLS(df['dY'], X).fit()\nprint(m.summary())\n"
+   },
+   "is_error": false,
+   "output": "                      D        dY  ...    tenure  log_hist_days\nD              1.000000 -0.209365  ... -0.009170       0.641109\ndY            -0.209365  1.000000  ...  0.002652      -0.398741\nlog_pre_gmv    0.114860  0.051335  ... -0.000869      -0.003508\norders         0.042893  0.049226  ...  0.012158      -0.011403\ntenure        -0.009170  0.002652  ...  1.000000      -0.007107\nlog_hist_days  0.641109 -0.398741  ... -0.007107       1.000000\n\n[6 rows x 6 columns]\n                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                     dY   R-squared:                       0.044\nModel:                            OLS   Adj. R-squared:                  0.044\nMethod:                 Least Squares   F-statistic:                     916.8\nDate:                Sat, 31 Oct 2026   Prob (F-statistic):          6.08e-197\nTime:                        16:57:39   Log-Likelihood:                -37954.\nNo. Observations:               20000   AIC:                         7.591e+04\nDf Residuals:                   19998   BIC:                         7.593e+04\nDf Model:                           1                                         \nCovariance Type:            nonrobust                                         \n==============================================================================\n                 coef    std err          t      P>|t|      [0.025      0.975]\n------------------------------------------------------------------------------\nconst          0.6979      0.030     23.222      0.000       0.639       0.757\nD             -0.0792      0.003    -30.278      0.000      -0.084      -0.074\n==============================================================================\nOmnibus:                      117.343   Durbin-Watson:                   2.003\nProb(Omnibus):                  0.000   Jarque-Bera (JB):              126.573\nSkew:                        "
+  },
+  {
+   "turn": 2,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\ndf = pd.read_csv('data.csv')\n# Create dummies for region and tier\nX = pd.get_dummies(df[['region','tier']].astype('category'), drop_first=True).astype(float)\nX['D'] = df['D']\nX['log_hist_days'] = df['log_hist_days']\nX['log_pre_gmv'] = df['log_pre_gmv']\nX['orders'] = df['orders']\nX['cat_share'] = df['cat_share']\nX['tenure'] = df['tenure']\nX = sm.add_constant(X)\nm = sm.OLS(df['dY'], X).fit(cov_type='HC3')\nprint(m.summary())\nprint('D coef:', m.params['D'], 'se:', m.bse['D'], 'CI:', m.conf_int().loc['D'])\n"
+   },
+   "is_error": false,
+   "output": "                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                     dY   R-squared:                       0.180\nModel:                            OLS   Adj. R-squared:                  0.179\nMethod:                 Least Squares   F-statistic:                     258.8\nDate:                Sat, 31 Oct 2026   Prob (F-statistic):               0.00\nTime:                        16:57:44   Log-Likelihood:                -36420.\nNo. Observations:               20000   AIC:                         7.287e+04\nDf Residuals:                   19986   BIC:                         7.298e+04\nDf Model:                          13                                         \nCovariance Type:                  HC3                                         \n=================================================================================\n                    coef    std err          z      P>|z|      [0.025      0.975]\n---------------------------------------------------------------------------------\nconst             3.3247      0.108     30.657      0.000       3.112       3.537\nregion_1.0        0.1396      0.034      4.097      0.000       0.073       0.206\nregion_2.0        0.2521      0.034      7.404      0.000       0.185       0.319\nregion_3.0        0.3868      0.036     10.794      0.000       0.317       0.457\nregion_4.0        0.5763      0.040     14.560      0.000       0.499       0.654\ntier_1            0.0721      0.039      1.834      0.067      -0.005       0.149\ntier_2            0.0796      0.059      1.343      0.179      -0.037       0.196\ntier_3           -0.2600      0.086     -3.030      0.002      -0.428      -0.092\nD                -0.0008      0.005     -0.147      0.883      -0.011       0.009\nlog_hist_days    -1.8692      0.050    -37.404      0.000      -1.967      -1.771\nlog_pre_gmv       0.0890      0.027      3.275      0.001       0"
+  },
+  {
+   "turn": 3,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\ndf = pd.read_csv('data.csv')\nprint('D describe:\\n', df['D'].describe())\nprint('dY describe:\\n', df['dY'].describe())\nprint('log_hist_days describe:\\n', df['log_hist_days'].describe())\n# Correlations\nprint(df[['D','log_hist_days','dY','log_pre_gmv','orders','cat_share','tenure']].corr())\n"
+   },
+   "is_error": false,
+   "output": "D describe:\n count    20000.000000\nmean        10.625358\nstd          4.362386\nmin          2.000000\n25%          7.702734\n50%          9.723103\n75%         12.419492\nmax         45.000000\nName: D, dtype: float64\ndY describe:\n count    20000.000000\nmean        -0.143890\nstd          1.650682\nmin        -11.239819\n25%         -1.192610\n50%         -0.092392\n75%          0.975121\nmax          5.790377\nName: dY, dtype: float64\nlog_hist_days describe:\n count    20000.000000\nmean         2.196208\nstd          0.350323\nmin          0.945636\n25%          1.956850\n50%          2.196630\n75%          2.433729\nmax          3.513186\nName: log_hist_days, dtype: float64\n                      D  log_hist_days        dY  ...    orders  cat_share    tenure\nD              1.000000       0.641109 -0.209365  ...  0.042893   0.008181 -0.009170\nlog_hist_days  0.641109       1.000000 -0.398741  ... -0.011403   0.002152 -0.007107\ndY            -0.209365      -0.398741  1.000000  ...  0.049226   0.004698  0.002652\nlog_pre_gmv    0.114860      -0.003508  0.051335  ...  0.452090  -0.000590 -0.000869\norders         0.042893      -0.011403  0.049226  ...  1.000000  -0.002148  0.012158\ncat_share      0.008181       0.002152  0.004698  ... -0.002148   1.000000  0.001782\ntenure        -0.009170      -0.007107  0.002652  ...  0.012158   0.001782  1.000000\n\n[7 rows x 7 columns]\n"
+  },
+  {
+   "turn": 4,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n\ndef fit(formula, data=df):\n    m = ols(formula, data=data).fit(cov_type='HC3')\n    print(formula)\n    print('D coef:', m.params.get('D'), 'se:', m.bse.get('D'), 'p:', m.pvalues.get('D'))\n    if 'log_hist_days' in m.params:\n        print('log_hist_days coef:', m.params['log_hist_days'], 'se:', m.bse['log_hist_days'])\n    print('R2:', m.rsquared)\n    print('---')\n\nfit('dY ~ D')\nfit('dY ~ D + log_hist_days')\nfit('dY ~ D + log_hist_days + log_pre_gmv + orders + cat_share + tenure + C(region) + C(tier)')\nfit('dY ~ D + log_hist_days + C(region) + C(tier)')\n# flexible D\nfit('dY ~ D + np.log(D) + log_hist_days')\nfit('dY ~ D + I(D**2) + log_hist_days')\n"
+   },
+   "is_error": false,
+   "output": "dY ~ D\nD coef: -0.07922151500152425 se: 0.0033435487045814093 p: 4.173250685580855e-124\nR2: 0.04383363610613289\n---\ndY ~ D + log_hist_days\nD coef: 0.02972722415617024 se: 0.004708867461049072 p: 2.736234490425257e-10\nlog_hist_days coef: -2.1161489688692887 se: 0.04693192981503682\nR2: 0.16262988220165375\n---\ndY ~ D + log_hist_days + log_pre_gmv + orders + cat_share + tenure + C(region) + C(tier)\nD coef: -0.0007564980494396882 se: 0.005138882624686107 p: 0.8829657857253694\nlog_hist_days coef: -1.869194596720176 se: 0.04997367427758846\nR2: 0.17978798520973482\n---\ndY ~ D + log_hist_days + C(region) + C(tier)\nD coef: 4.306032379471493e-05 se: 0.005136761755871052 p: 0.9933115906886478\nlog_hist_days coef: -1.876614442308309 se: 0.049909332678035254\nR2: 0.17827174025887238\n---\ndY ~ D + np.log(D) + log_hist_days\nD coef: -0.3347527148809311 se: 0.012353043807584048 p: 1.0171132883364657e-161\nlog_hist_days coef: -2.761688202496756 se: 0.045728408907210256\nR2: 0.2543968452480393\n---\ndY ~ D + I(D**2) + log_hist_days\nD coef: 0.3478031714503825 se: 0.014483184075546307 p: 1.9727495067732355e-127\nlog_hist_days coef: -2.614467078362182 se: 0.044106264391764516\nR2: 0.22601273719100834\n---\n"
+  },
+  {
+   "turn": 5,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n# D by region and tier\nprint(df.groupby('region')['D'].agg(['mean','std','count']))\nprint(df.groupby('tier')['D'].agg(['mean','std','count']))\nprint(df.groupby('region')['log_hist_days'].mean())\nprint(df.groupby('region')['dY'].mean())\n# D ~ region + tier + log_hist_days\nm = ols('D ~ log_hist_days + C(region) + C(tier)', data=df).fit()\nprint(m.summary())\n"
+   },
+   "is_error": false,
+   "output": "             mean       std  count\nregion                            \n0.0      8.753259  3.383424   4028\n1.0      9.776129  3.878518   3976\n2.0     10.209255  3.872550   4037\n3.0     11.266799  4.343278   3942\n4.0     13.131853  4.870898   4017\n           mean       std  count\ntier                            \n0     10.055086  4.114878   7000\n1     10.715317  4.362016   7000\n2     11.075500  4.526705   4000\n3     11.406166  4.616488   2000\nregion\n0.0    2.195496\n1.0    2.199929\n2.0    2.193728\n3.0    2.197712\n4.0    2.194255\nName: log_hist_days, dtype: float64\nregion\n0.0   -0.411947\n1.0   -0.282686\n2.0   -0.156505\n3.0   -0.031217\n4.0    0.164388\nName: dY, dtype: float64\n                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                      D   R-squared:                       0.541\nModel:                            OLS   Adj. R-squared:                  0.541\nMethod:                 Least Squares   F-statistic:                     2948.\nDate:                Sat, 31 Oct 2026   Prob (F-statistic):               0.00\nTime:                        16:58:16   Log-Likelihood:                -50047.\nNo. Observations:               20000   AIC:                         1.001e+05\nDf Residuals:                   19991   BIC:                         1.002e+05\nDf Model:                           8                                         \nCovariance Type:            nonrobust                                         \n====================================================================================\n                       coef    std err          t      P>|t|      [0.025      0.975]\n------------------------------------------------------------------------------------\nIntercept           -9.3959      0.142    -66.166      0.000      -9.674      -9.118\nC(region)[T.1.0]     0.9996      0.066     15.126      0.000       0.870       1.129\nC(region)[T.2.0]     1.4809 "
+  },
+  {
+   "turn": 6,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n\n# Flexible D: bins\ndf['D_bin'] = pd.qcut(df['D'], 10, labels=False)\nm = ols('dY ~ C(D_bin) + log_hist_days + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint(m.summary())\n"
+   },
+   "is_error": false,
+   "output": "                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                     dY   R-squared:                       0.249\nModel:                            OLS   Adj. R-squared:                  0.248\nMethod:                 Least Squares   F-statistic:                     250.7\nDate:                Sat, 31 Oct 2026   Prob (F-statistic):               0.00\nTime:                        16:58:26   Log-Likelihood:                -35535.\nNo. Observations:               20000   AIC:                         7.111e+04\nDf Residuals:                   19978   BIC:                         7.129e+04\nDf Model:                          21                                         \nCovariance Type:                  HC3                                         \n====================================================================================\n                       coef    std err          z      P>|z|      [0.025      0.975]\n------------------------------------------------------------------------------------\nIntercept            4.3805      0.116     37.654      0.000       4.152       4.609\nC(D_bin)[T.1]        0.8541      0.047     18.017      0.000       0.761       0.947\nC(D_bin)[T.2]        1.1656      0.049     23.745      0.000       1.069       1.262\nC(D_bin)[T.3]        1.4264      0.051     28.236      0.000       1.327       1.525\nC(D_bin)[T.4]        1.6263      0.053     30.955      0.000       1.523       1.729\nC(D_bin)[T.5]        1.7089      0.054     31.719      0.000       1.603       1.814\nC(D_bin)[T.6]        1.9037      0.056     33.921      0.000       1.794       2.014\nC(D_bin)[T.7]        1.9219      0.059     32.382      0.000       1.806       2.038\nC(D_bin)[T.8]        1.8882      0.063     30.098      0.000       1.765       2.011\nC(D_bin)[T.9]        1.5103      0.071     21.263      0.000       1.371       1.650\nC(region)[T.1.0]    -0.051"
+  },
+  {
+   "turn": 7,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n\n# dY vs log_hist_days bins, with region/tier controls\ndf['lh_bin'] = pd.qcut(df['log_hist_days'], 10, labels=False)\nm = ols('dY ~ C(lh_bin) + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint(m.params[1:10])\nprint('---')\n# dY vs log_hist_days flexible polynomial\nm2 = ols('dY ~ log_hist_days + I(log_hist_days**2) + I(log_hist_days**3) + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint(m2.summary())\n"
+   },
+   "is_error": false,
+   "output": "C(lh_bin)[T.1]    0.250823\nC(lh_bin)[T.2]    0.220644\nC(lh_bin)[T.3]    0.178026\nC(lh_bin)[T.4]    0.035905\nC(lh_bin)[T.5]   -0.124170\nC(lh_bin)[T.6]   -0.367159\nC(lh_bin)[T.7]   -0.681920\nC(lh_bin)[T.8]   -1.070759\nC(lh_bin)[T.9]   -2.290845\ndtype: float64\n---\n                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                     dY   R-squared:                       0.263\nModel:                            OLS   Adj. R-squared:                  0.262\nMethod:                 Least Squares   F-statistic:                     454.8\nDate:                Sat, 31 Oct 2026   Prob (F-statistic):               0.00\nTime:                        16:58:39   Log-Likelihood:                -35357.\nNo. Observations:               20000   AIC:                         7.074e+04\nDf Residuals:                   19985   BIC:                         7.086e+04\nDf Model:                          14                                         \nCovariance Type:                  HC3                                         \n=========================================================================================\n                            coef    std err          z      P>|z|      [0.025      0.975]\n-----------------------------------------------------------------------------------------\nIntercept                -7.6511      1.124     -6.808      0.000      -9.854      -5.448\nC(region)[T.1.0]          0.1182      0.032      3.687      0.000       0.055       0.181\nC(region)[T.2.0]          0.2443      0.032      7.719      0.000       0.182       0.306\nC(region)[T.3.0]          0.3599      0.032     11.258      0.000       0.297       0.423\nC(region)[T.4.0]          0.5460      0.032     17.312      0.000       0.484       0.608\nC(tier)[T.1]              0.0849      0.037      2.277      0.023       0.012       0.158\nC(tier)[T.2]              0.1041      0.056      1.853     "
+  },
+  {
+   "turn": 8,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\nfor formula in ['dY ~ D + C(region)', 'dY ~ D + C(region) + C(tier)', 'dY ~ D + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure']:\n    m = ols(formula, data=df).fit(cov_type='HC3')\n    print(formula, '| D coef:', m.params['D'], 'se:', m.bse['D'], 'p:', m.pvalues['D'])\n"
+   },
+   "is_error": false,
+   "output": "dY ~ D + C(region) | D coef: -0.10727936116669004 se: 0.00339583872036462 p: 4.843351608806466e-219\ndY ~ D + C(region) + C(tier) | D coef: -0.11103646980812457 se: 0.0033904488910955735 p: 3.0577936217010722e-235\ndY ~ D + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure | D coef: -0.1115964865133944 se: 0.0033852461878354683 p: 2.5332212601867484e-238\n"
+  },
+  {
+   "turn": 9,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n\n# residual D after controlling for log_hist_days, region, tier\nmD = ols('D ~ log_hist_days + C(region) + C(tier)', data=df).fit()\ndf['D_resid'] = mD.resid\nprint('D_resid std:', df['D_resid'].std())\n# correlate D_resid with pre vars and dY\npre_cols = ['log_hist_days','log_pre_gmv','orders','cat_share','tenure','D_resid','dY']\nprint(df[pre_cols].corr())\n# regress dY on D_resid with all pre controls\nm = ols('dY ~ D_resid + log_hist_days + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint('D_resid coef:', m.params['D_resid'], 'se:', m.bse['D_resid'], 'p:', m.pvalues['D_resid'])\n"
+   },
+   "is_error": false,
+   "output": "D_resid std: 2.9547739560257407\n               log_hist_days  log_pre_gmv  ...       D_resid        dY\nlog_hist_days   1.000000e+00    -0.003508  ...  3.740235e-15 -0.398741\nlog_pre_gmv    -3.508018e-03     1.000000  ...  2.340914e-02  0.051335\norders         -1.140272e-02     0.452090  ...  5.137110e-03  0.049226\ncat_share       2.152324e-03    -0.000590  ...  1.244314e-03  0.004698\ntenure         -7.107321e-03    -0.000869  ... -6.409269e-03  0.002652\nD_resid         3.740235e-15     0.023409  ...  1.000000e+00  0.000077\ndY             -3.987414e-01     0.051335  ...  7.707936e-05  1.000000\n\n[7 rows x 7 columns]\nD_resid coef: -0.0007564980494397793 se: 0.00513888262468611 p: 0.8829657857253556\n"
+  },
+  {
+   "turn": 10,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\nmD = ols('D ~ log_hist_days + C(region) + C(tier)', data=df).fit()\ndf['D_resid'] = mD.resid\ndf['Dresid_bin'] = pd.qcut(df['D_resid'], 10, labels=False)\nm = ols('dY ~ C(Dresid_bin) + log_hist_days + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint(m.params[1:10])\n# mean dY by Dresid_bin\nprint(df.groupby('Dresid_bin')['dY'].mean())\n"
+   },
+   "is_error": false,
+   "output": "C(Dresid_bin)[T.1]    0.160394\nC(Dresid_bin)[T.2]    0.160894\nC(Dresid_bin)[T.3]    0.271930\nC(Dresid_bin)[T.4]    0.287531\nC(Dresid_bin)[T.5]    0.351015\nC(Dresid_bin)[T.6]    0.431560\nC(Dresid_bin)[T.7]    0.430458\nC(Dresid_bin)[T.8]    0.562015\nC(Dresid_bin)[T.9]    0.169554\ndtype: float64\nDresid_bin\n0   -0.844166\n1   -0.405796\n2   -0.292565\n3   -0.096778\n4   -0.017383\n5    0.085663\n6    0.216516\n7    0.242750\n8    0.295882\n9   -0.623024\nName: dY, dtype: float64\n"
+  },
+  {
+   "turn": 11,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\nmD = ols('D ~ log_hist_days + C(region) + C(tier)', data=df).fit()\ndf['D_resid'] = mD.resid\n# correlate D_resid with transforms of log_hist_days\ndf['lh2'] = df['log_hist_days']**2\ndf['lh3'] = df['log_hist_days']**3\ndf['lh_exp'] = np.exp(df['log_hist_days'])\nprint(df[['D_resid','log_hist_days','lh2','lh3','lh_exp']].corr())\n# Is D non-linear in log_hist_days?\nm = ols('D ~ log_hist_days + I(log_hist_days**2) + I(log_hist_days**3) + C(region) + C(tier)', data=df).fit()\nprint(m.summary())\n"
+   },
+   "is_error": false,
+   "output": "                    D_resid  log_hist_days       lh2       lh3    lh_exp\nD_resid        1.000000e+00   3.725932e-15  0.021027  0.041130  0.047014\nlog_hist_days  3.725932e-15   1.000000e+00  0.993943  0.977235  0.970513\nlh2            2.102693e-02   9.939431e-01  1.000000  0.994543  0.990639\nlh3            4.113014e-02   9.772350e-01  0.994543  1.000000  0.999270\nlh_exp         4.701363e-02   9.705127e-01  0.990639  0.999270  1.000000\n                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                      D   R-squared:                       0.559\nModel:                            OLS   Adj. R-squared:                  0.558\nMethod:                 Least Squares   F-statistic:                     2530.\nDate:                Sat, 31 Oct 2026   Prob (F-statistic):               0.00\nTime:                        16:59:17   Log-Likelihood:                -49659.\nNo. Observations:               20000   AIC:                         9.934e+04\nDf Residuals:                   19989   BIC:                         9.943e+04\nDf Model:                          10                                         \nCovariance Type:            nonrobust                                         \n=========================================================================================\n                            coef    std err          t      P>|t|      [0.025      0.975]\n-----------------------------------------------------------------------------------------\nIntercept                -4.9067      2.147     -2.285      0.022      -9.115      -0.698\nC(region)[T.1.0]          1.0242      0.065     15.799      0.000       0.897       1.151\nC(region)[T.2.0]          1.4916      0.065     23.102      0.000       1.365       1.618\nC(region)[T.3.0]          2.5381      0.065     39.070      0.000       2.411       2.665\nC(region)[T.4.0]          4.4307      0.065     68.528      0.0"
+  },
+  {
+   "turn": 12,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n# flexible log_hist_days via 20 quantile bins\ndf['lh_bin20'] = pd.qcut(df['log_hist_days'], 20, labels=False)\ncontrols = 'C(lh_bin20) + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure'\n# residualize dY and D\nmY = ols('dY ~ ' + controls, data=df).fit()\nmD = ols('D ~ ' + controls, data=df).fit()\ndf['dY_resid'] = mY.resid\ndf['D_resid_flex'] = mD.resid\nprint('corr D_resid_flex vs dY_resid:', df[['D_resid_flex','dY_resid']].corr().iloc[0,1])\n# regress dY_resid on D_resid_flex\nm = ols('dY_resid ~ D_resid_flex', data=df).fit(cov_type='HC3')\nprint('D_resid_flex coef:', m.params['D_resid_flex'], 'se:', m.bse['D_resid_flex'], 'p:', m.pvalues['D_resid_flex'])\n# also non-linear bins of D_resid_flex\ndf['Drf_bin'] = pd.qcut(df['D_resid_flex'], 10, labels=False)\nprint(df.groupby('Drf_bin')['dY_resid'].mean())\n"
+   },
+   "is_error": false,
+   "output": "corr D_resid_flex vs dY_resid: 0.04333196626132107\nD_resid_flex coef: 0.02116267937864006 se: 0.005069720424213612 p: 2.9886601727266224e-05\nDrf_bin\n0   -0.111898\n1   -0.303565\n2   -0.260742\n3   -0.135381\n4   -0.091439\n5    0.025592\n6    0.095157\n7    0.301579\n8    0.379381\n9    0.101316\nName: dY_resid, dtype: float64\n"
+  },
+  {
+   "turn": 13,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ndf['hist_days'] = np.exp(df['log_hist_days'])\nprint('corr D vs hist_days:', np.corrcoef(df['D'], df['hist_days'])[0,1])\nprint('corr D vs log_hist_days:', np.corrcoef(df['D'], df['log_hist_days'])[0,1])\n# regress D on hist_days and log\nfor formula in ['D ~ hist_days', 'D ~ log_hist_days', 'D ~ hist_days + C(region) + C(tier)', 'D ~ log_hist_days + C(region) + C(tier)']:\n    m = ols(formula, data=df).fit()\n    print(formula, 'R2:', m.rsquared)\n"
+   },
+   "is_error": false,
+   "output": "corr D vs hist_days: 0.652694170509154\ncorr D vs log_hist_days: 0.6411086341425839\nD ~ hist_days R2: 0.42600968021663244\nD ~ log_hist_days R2: 0.41102028077216934\nD ~ hist_days + C(region) + C(tier) R2: 0.5579835814433296\nD ~ log_hist_days + C(region) + C(tier) R2: 0.5412243110070936\n"
+  },
+  {
+   "turn": 14,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ncontrols = 'C(lh_bin20) + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure'\ndf['lh_bin20'] = pd.qcut(df['log_hist_days'], 20, labels=False)\nmD = ols('D ~ ' + controls, data=df).fit()\ndf['D_resid_flex'] = mD.resid\nprint('corr D_resid_flex with post_orders:', np.corrcoef(df['D_resid_flex'], df['post_orders'])[0,1])\nprint('corr D_resid_flex with dY:', np.corrcoef(df['D_resid_flex'], df['dY'])[0,1])\nprint('corr post_orders with dY:', np.corrcoef(df['post_orders'], df['dY'])[0,1])\n# regress dY on D_resid_flex and post_orders\nm = ols('dY ~ D_resid_flex + post_orders', data=df).fit(cov_type='HC3')\nprint(m.params, m.bse)\n"
+   },
+   "is_error": false,
+   "output": "corr D_resid_flex with post_orders: 0.0010027527322313283\ncorr D_resid_flex with dY: 0.03759416116254649\ncorr post_orders with dY: 0.04068431691715746\nIntercept      -0.264257\nD_resid_flex    0.021140\npost_orders     0.031248\ndtype: float64 Intercept       0.023722\nD_resid_flex    0.006864\npost_orders     0.005515\ndtype: float64\n"
+  },
+  {
+   "turn": 15,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ndf['lh_bin20'] = pd.qcut(df['log_hist_days'], 20, labels=False)\ncontrols = 'C(lh_bin20) + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure'\nmD = ols('D ~ ' + controls, data=df).fit()\ndf['D_resid_flex'] = mD.resid\nfor c in ['log_hist_days','lh2','lh3','lh_exp']:\n    if c not in df:\n        df['lh2']=df['log_hist_days']**2; df['lh3']=df['log_hist_days']**3; df['lh_exp']=np.exp(df['log_hist_days'])\n    print(c, np.corrcoef(df['D_resid_flex'], df[c])[0,1])\n"
+   },
+   "is_error": false,
+   "output": "log_hist_days 0.018183342913376768\nlh2 0.021481274740216674\nlh3 0.026045702397070315\nlh_exp 0.0297027491594611\n"
+  },
+  {
+   "turn": 16,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n# flexible dY vs log_hist_days with region/tier controls, use 20 bins\ndf['lh_bin20'] = pd.qcut(df['log_hist_days'], 20, labels=False)\ncontrols = 'C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure'\nm = ols('dY ~ C(lh_bin20) + ' + controls, data=df).fit()\n# get bin coefficients (first 19)\nbin_coefs = m.params[1:20].values\nbin_centers = df.groupby('lh_bin20')['log_hist_days'].mean().values\nprint('bin centers:', np.round(bin_centers,3))\nprint('bin coefs:', np.round(bin_coefs,3))\n# Compare with linear prediction from m2\nm2 = ols('dY ~ log_hist_days + ' + controls, data=df).fit()\nlin_pred = m2.params['log_hist_days']*(bin_centers - bin_centers[0]) + m2.params['Intercept']\nprint('linear coef:', m2.params['log_hist_days'])\n"
+   },
+   "is_error": false,
+   "output": "bin centers: [1.482 1.688 1.788 1.865 1.93  1.984 2.035 2.081 2.129 2.175 2.22  2.264\n 2.31  2.358 2.408 2.462 2.522 2.598 2.704 2.922]\nbin coefs: [ 2.510e-01  3.750e-01  3.770e-01  3.570e-01  3.360e-01  3.370e-01\n  2.700e-01  1.490e-01  1.740e-01  4.000e-03 -1.000e-03 -2.130e-01\n -2.710e-01 -4.900e-01 -6.230e-01 -7.450e-01 -1.145e+00 -1.517e+00\n -2.814e+00]\nlinear coef: -1.8752438027329479\n"
+  },
+  {
+   "turn": 17,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\nbase = ' + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure'\nspecs = {\n 'linear': 'dY ~ D + log_hist_days' + base,\n 'cubic_lh': 'dY ~ D + log_hist_days + I(log_hist_days**2) + I(log_hist_days**3)' + base,\n '5bins_lh': 'dY ~ D + C(pd.qcut(log_hist_days,5,labels=False))' + base,\n '10bins_lh': 'dY ~ D + C(pd.qcut(log_hist_days,10,labels=False))' + base,\n '20bins_lh': 'dY ~ D + C(pd.qcut(log_hist_days,20,labels=False))' + base,\n '50bins_lh': 'dY ~ D + C(pd.qcut(log_hist_days,50,labels=False))' + base,\n}\nfor name, spec in specs.items():\n    m = ols(spec, data=df).fit(cov_type='HC3')\n    print(name, '| D coef:', round(m.params['D'],5), 'se:', round(m.bse['D'],5), 'p:', round(m.pvalues['D'],5), 'R2:', round(m.rsquared,4))\n"
+   },
+   "is_error": false,
+   "output": "linear | D coef: -0.00076 se: 0.00514 p: 0.88297 R2: 0.1798\ncubic_lh | D coef: 0.03164 se: 0.005 p: 0.0 R2: 0.2656\n5bins_lh | D coef: -0.01104 se: 0.00512 p: 0.03114 R2: 0.1992\n10bins_lh | D coef: 0.01012 se: 0.00522 p: 0.05259 R2: 0.2299\n20bins_lh | D coef: 0.02116 se: 0.00508 p: 3e-05 R2: 0.2487\n50bins_lh | D coef: 0.02778 se: 0.00509 p: 0.0 R2: 0.2609\n"
+  },
+  {
+   "turn": 18,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\nfrom linearmodels.iv import IV2SLS\ndf = pd.read_csv('data.csv')\n# 2SLS: dY ~ D + region + tier + log_pre_gmv + orders + cat_share + tenure | instrument log_hist_days for D\n# Need to handle categoricals\nfrom linearmodels.iv import IV2SLS\nimport statsmodels.formula.api as smf\n# Build dummies\ndf2 = pd.get_dummies(df, columns=['region','tier'], drop_first=True).astype(float)\ndf2['const'] = 1\nexog = ['const','region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2','tier_3','log_pre_gmv','orders','cat_share','tenure']\nendog = ['D']\ninstr = ['log_hist_days']\ndep = 'dY'\n# IV2SLS from linearmodels may not be installed; check\ntry:\n    mod = IV2SLS(df2[dep], df2[exog], df2[endog], df2[instr]).fit()\n    print(mod.summary)\nexcept Exception as e:\n    print('linearmodels error:', e)\n    # manual 2SLS\n    X_exog = sm.add_constant(df2[['region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2','tier_3','log_pre_gmv','orders','cat_share','tenure']])\n    Z = sm.add_constant(df2[['log_hist_days','region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2','tier_3','log_pre_gmv','orders','cat_share','tenure']])\n    # first stage\n    fs = sm.OLS(df2['D'], Z).fit()\n    Dhat = fs.fittedvalues\n    # second stage\n    X2 = pd.DataFrame({'D': Dhat})\n    for c in ['region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2','tier_3','log_pre_gmv','orders','cat_share','tenure']:\n        X2[c] = df2[c]\n    X2 = sm.add_constant(X2)\n    ss = sm.OLS(df2['dY'], X2).fit(cov_type='HC3')\n    print('Manual 2SLS D coef:', ss.params['D'], 'se:', ss.bse['D'], 'p:', ss.pvalues['D'])\n    print('First stage log_hist_days coef:', fs.params['log_hist_days'])\n"
+   },
+   "is_error": true,
+   "output": "\n[stderr]\nTraceback (most recent call last):\n  File \"/tmp/code_baseline_6ryjf0u3/script.py\", line 4, in <module>\n    from linearmodels.iv import IV2SLS\nModuleNotFoundError: No module named 'linearmodels'\n"
+  },
+  {
+   "turn": 19,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ndf2 = pd.get_dummies(df, columns=['region','tier'], drop_first=True).astype(float)\n# manual 2SLS\nexog_cols = ['region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2','tier_3','log_pre_gmv','orders','cat_share','tenure']\nX_exog = sm.add_constant(df2[exog_cols])\nZ = sm.add_constant(df2[['log_hist_days'] + exog_cols])\nfs = sm.OLS(df2['D'], Z).fit()\nDhat = fs.fittedvalues\nX2 = sm.add_constant(pd.concat([Dhat.rename('D'), df2[exog_cols]], axis=1))\nss = sm.OLS(df2['dY'], X2).fit(cov_type='HC3')\nprint('Manual 2SLS D coef:', ss.params['D'], 'se:', ss.bse['D'], 'p:', ss.pvalues['D'])\nprint('First stage log_hist_days coef:', fs.params['log_hist_days'], 'F:', fs.fvalue)\n# Reduced form: dY on instrument + exog\nrf = sm.OLS(df2['dY'], Z).fit(cov_type='HC3')\nprint('Reduced form log_hist_days coef:', rf.params['log_hist_days'], 'se:', rf.bse['log_hist_days'])\n"
+   },
+   "is_error": false,
+   "output": "Manual 2SLS D coef: -0.23451313709536106 se: 0.0045199711145090015 p: 0.0\nFirst stage log_hist_days coef: 7.996327310100396 F: 1978.1497639581344\nReduced form log_hist_days coef: -1.8752438027329426 se: 0.03614316846381319\n"
+  },
+  {
+   "turn": 20,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ndf2 = pd.get_dummies(df, columns=['region','tier'], drop_first=True).astype(float)\ndf2['lh2'] = df2['log_hist_days']**2\ndf2['lh3'] = df2['log_hist_days']**3\nexog_cols = ['region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2','tier_3','log_pre_gmv','orders','cat_share','tenure']\n\ndef iv_manual(instr_cols):\n    Z = sm.add_constant(df2[instr_cols + exog_cols])\n    fs = sm.OLS(df2['D'], Z).fit()\n    Dhat = fs.fittedvalues\n    X2 = sm.add_constant(pd.concat([Dhat.rename('D'), df2[exog_cols]], axis=1))\n    ss = sm.OLS(df2['dY'], X2).fit(cov_type='HC3')\n    return ss, fs\n\nfor instr_cols in [['log_hist_days'], ['log_hist_days','lh2'], ['log_hist_days','lh2','lh3']]:\n    ss, fs = iv_manual(instr_cols)\n    print('Instr:', instr_cols, '| D coef:', round(ss.params['D'],5), 'se:', round(ss.bse['D'],5))\n    print('First stage F:', fs.fvalue)\n    # Sargan test (manual): overidentifying restrictions\n    if len(instr_cols)>1:\n        # residuals from second stage\n        res = ss.resid\n        # regress residuals on instruments and exog\n        Z = sm.add_constant(df2[instr_cols + exog_cols])\n        aux = sm.OLS(res, Z).fit()\n        n = len(res)\n        sargan = n * aux.rsquared\n        from scipy import stats\n        df_over = len(instr_cols)-1\n        p = 1 - stats.chi2.cdf(sargan, df_over)\n        print('Sargan stat:', sargan, 'df:', df_over, 'p:', p)\n    print('---')\n"
+   },
+   "is_error": false,
+   "output": "Instr: ['log_hist_days'] | D coef: -0.23451 se: 0.00452\nFirst stage F: 1978.1497639581344\n---\nInstr: ['log_hist_days', 'lh2'] | D coef: -0.25821 se: 0.00409\nFirst stage F: 1954.9451274524401\nSargan stat: 1054.8797710120139 df: 1 p: 0.0\n---\nInstr: ['log_hist_days', 'lh2', 'lh3'] | D coef: -0.25811 se: 0.00411\nFirst stage F: 1819.9968034047592\nSargan stat: 1055.6307769040106 df: 2 p: 0.0\n---\n"
+  },
+  {
+   "turn": 21,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n# within bins of log_hist_days, correlate D and dY (residualized on region/tier/other)\n# First residualize dY and D on region/tier/other controls (not log_hist_days)\ncontrols_no_lh = 'C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure'\nmY = ols('dY ~ ' + controls_no_lh, data=df).fit()\nmD = ols('D ~ ' + controls_no_lh, data=df).fit()\ndf['dY_r'] = mY.resid\ndf['D_r'] = mD.resid\ndf['lh_bin'] = pd.qcut(df['log_hist_days'], 10, labels=False)\n# within each bin, correlation and regression\nfor b in range(10):\n    sub = df[df['lh_bin']==b]\n    corr = np.corrcoef(sub['D_r'], sub['dY_r'])[0,1]\n    m = ols('dY_r ~ D_r', data=sub).fit()\n    print(f'bin {b}: n={len(sub)}, corr={corr:.3f}, D coef={m.params[\"D_r\"]:.3f}, se={m.bse[\"D_r\"]:.3f}')\n"
+   },
+   "is_error": false,
+   "output": "bin 0: n=2000, corr=0.329, D coef=0.353, se=0.023\nbin 1: n=2000, corr=0.212, D coef=0.192, se=0.020\nbin 2: n=2000, corr=0.288, D coef=0.259, se=0.019\nbin 3: n=2000, corr=0.197, D coef=0.150, se=0.017\nbin 4: n=2000, corr=0.198, D coef=0.130, se=0.014\nbin 5: n=2000, corr=0.161, D coef=0.100, se=0.014\nbin 6: n=2000, corr=0.089, D coef=0.043, se=0.011\nbin 7: n=2000, corr=0.010, D coef=0.004, se=0.010\nbin 8: n=2000, corr=-0.017, D coef=-0.007, se=0.009\nbin 9: n=2000, corr=-0.259, D coef=-0.075, se=0.006\n"
+  },
+  {
+   "turn": 22,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n# interaction model\nm = ols('dY ~ D * log_hist_days + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint(m.summary())\n"
+   },
+   "is_error": false,
+   "output": "                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                     dY   R-squared:                       0.277\nModel:                            OLS   Adj. R-squared:                  0.277\nMethod:                 Least Squares   F-statistic:                     337.0\nDate:                Sat, 31 Oct 2026   Prob (F-statistic):               0.00\nTime:                        17:01:59   Log-Likelihood:                -35156.\nNo. Observations:               20000   AIC:                         7.034e+04\nDf Residuals:                   19985   BIC:                         7.046e+04\nDf Model:                          14                                         \nCovariance Type:                  HC3                                         \n====================================================================================\n                       coef    std err          z      P>|z|      [0.025      0.975]\n------------------------------------------------------------------------------------\nIntercept           -2.8335      0.232    -12.235      0.000      -3.287      -2.380\nC(region)[T.1.0]     0.0266      0.032      0.821      0.412      -0.037       0.090\nC(region)[T.2.0]     0.0923      0.033      2.781      0.005       0.027       0.157\nC(region)[T.3.0]     0.0955      0.037      2.553      0.011       0.022       0.169\nC(region)[T.4.0]     0.0652      0.046      1.424      0.155      -0.025       0.155\nC(tier)[T.1]         0.0576      0.037      1.562      0.118      -0.015       0.130\nC(tier)[T.2]         0.0763      0.056      1.371      0.170      -0.033       0.185\nC(tier)[T.3]        -0.2477      0.080     -3.082      0.002      -0.405      -0.090\nD                    0.8241      0.033     24.962      0.000       0.759       0.889\nlog_hist_days        0.5829      0.092      6.325      0.000       0.402       0.763\nD:log_hist_days     -0.312"
+  },
+  {
+   "turn": 23,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ndf['log_D'] = np.log(df['D'])\n# dY ~ log_D + log_hist_days + controls\nm = ols('dY ~ log_D + log_hist_days + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint('log_D coef:', m.params['log_D'], 'se:', m.bse['log_D'], 'p:', m.pvalues['log_D'])\nprint('log_hist_days coef:', m.params['log_hist_days'], 'se:', m.bse['log_hist_days'])\nprint('R2:', m.rsquared)\n# dY ~ log_D alone\nm2 = ols('dY ~ log_D', data=df).fit(cov_type='HC3')\nprint('log_D alone coef:', m2.params['log_D'], 'se:', m2.bse['log_D'])\n"
+   },
+   "is_error": false,
+   "output": "log_D coef: 0.8809960257130662 se: 0.0572961634919497 p: 2.3650135800223743e-53\nlog_hist_days coef: -2.5060118672118383 se: 0.050195074165889184\nR2: 0.19366617363209548\nlog_D alone coef: -0.6776639049850423 se: 0.038124888310953585\n"
+  },
+  {
+   "turn": 24,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ndf['lh2'] = df['log_hist_days']**2\n# include lh2 and interaction\nm = ols('dY ~ D * log_hist_days + I(log_hist_days**2) + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint('D coef:', m.params['D'], 'se:', m.bse['D'], 'p:', m.pvalues['D'])\nprint('D:log_hist_days coef:', m.params['D:log_hist_days'], 'se:', m.bse['D:log_hist_days'], 'p:', m.pvalues['D:log_hist_days'])\nprint('lh2 coef:', m.params['I(log_hist_days ** 2)'], 'se:', m.bse['I(log_hist_days ** 2)'])\nprint('log_hist_days coef:', m.params['log_hist_days'])\nprint('R2:', m.rsquared)\n"
+   },
+   "is_error": false,
+   "output": "D coef: 0.5715345651402991 se: 0.04480401223243394 p: 2.8744334118883383e-37\nD:log_hist_days coef: -0.21070676822176235 se: 0.016754875048764557 p: 2.867058311039233e-36\nlh2 coef: -1.386731652646327 se: 0.1197696639129706\nlog_hist_days coef: 5.7626957597295805\nR2: 0.28660355027731177\n"
+  },
+  {
+   "turn": 25,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nfrom sklearn.model_selection import KFold\nfrom sklearn.ensemble import GradientBoostingRegressor\nimport statsmodels.api as sm\ndf = pd.read_csv('data.csv')\n# confounders: all pre-treatment\nconf_cols = ['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier']\nX = df[conf_cols].values\nD = df['D'].values\nY = df['dY'].values\nn = len(df)\nkf = KFold(n_splits=5, shuffle=True, random_state=42)\nresid_D = np.zeros(n)\nresid_Y = np.zeros(n)\nfor tr, te in kf.split(X):\n    gD = GradientBoostingRegressor(n_estimators=500, max_depth=4, learning_rate=0.05, random_state=42)\n    gY = GradientBoostingRegressor(n_estimators=500, max_depth=4, learning_rate=0.05, random_state=42)\n    gD.fit(X[tr], D[tr]); gY.fit(X[tr], Y[tr])\n    resid_D[te] = D[te] - gD.predict(X[te])\n    resid_Y[te] = Y[te] - gY.predict(X[te])\n# OLS on residuals\nm = sm.OLS(resid_Y, resid_D).fit(cov_type='HC3')\nprint('DML (GBM) D coef:', m.params[0], 'se:', m.bse[0], 'p:', m.pvalues[0], 'CI:', m.conf_int()[0])\nprint('corr resid_D, resid_Y:', np.corrcoef(resid_D, resid_Y)[0,1])\n"
+   },
+   "is_error": false,
+   "output": "DML (GBM) D coef: 0.037663897566319215 se: 0.005013265529618902 p: 5.785507191353164e-14 CI: [0.02783808 0.04748972]\ncorr resid_D, resid_Y: 0.07613485413949658\n\n\n[提示] 你还剩 3 次工具调用，请准备给出结论。"
+  },
+  {
+   "turn": 26,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\n# Does dY predict D after controls? (reverse causality check)\nm = ols('D ~ dY + log_hist_days + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint('dY coef on D:', m.params['dY'], 'se:', m.bse['dY'], 'p:', m.pvalues['dY'])\n# Does post_orders predict D after controls? (mechanism: more orders -> slower delivery)\nm2 = ols('D ~ post_orders + log_hist_days + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\nprint('post_orders coef on D:', m2.params['post_orders'], 'se:', m2.bse['post_orders'], 'p:', m2.pvalues['post_orders'])\n"
+   },
+   "is_error": false,
+   "output": "dY coef on D: -0.0029445690193966854 se: 0.02000896585231652 p: 0.8830037754246665\npost_orders coef on D: 0.004607414418265003 se: 0.020244161552254857 p: 0.8199632400342587\n\n\n[提示] 你还剩 2 次工具调用，请准备给出结论。"
+  },
+  {
+   "turn": 27,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ncontrols_no_lh = 'C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure'\nmY = ols('dY ~ ' + controls_no_lh, data=df).fit()\nmD = ols('D ~ ' + controls_no_lh, data=df).fit()\ndf['dY_r'] = mY.resid\ndf['D_r'] = mD.resid\ndf['lh_bin'] = pd.qcut(df['log_hist_days'], 10, labels=False)\nfor b in range(10):\n    sub = df[df['lh_bin']==b]\n    # control for log_hist_days within bin\n    m = ols('dY_r ~ D_r + log_hist_days', data=sub).fit()\n    print(f'bin {b}: D coef={m.params[\"D_r\"]:.3f} (se {m.bse[\"D_r\"]:.3f}), log_hist_days coef={m.params[\"log_hist_days\"]:.2f}')\n"
+   },
+   "is_error": false,
+   "output": "bin 0: D coef=0.342 (se 0.025), log_hist_days coef=0.22\nbin 1: D coef=0.195 (se 0.020), log_hist_days coef=-0.77\nbin 2: D coef=0.262 (se 0.019), log_hist_days coef=-1.67\nbin 3: D coef=0.153 (se 0.017), log_hist_days coef=-2.58\nbin 4: D coef=0.130 (se 0.015), log_hist_days coef=-0.06\nbin 5: D coef=0.101 (se 0.014), log_hist_days coef=-1.19\nbin 6: D coef=0.045 (se 0.011), log_hist_days coef=-3.12\nbin 7: D coef=0.005 (se 0.010), log_hist_days coef=-1.76\nbin 8: D coef=0.002 (se 0.009), log_hist_days coef=-4.75\nbin 9: D coef=-0.032 (se 0.006), log_hist_days coef=-5.78\n\n\n[提示] 你还剩 1 次工具调用，请准备给出结论。"
+  },
+  {
+   "turn": 28,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.api as sm\nfrom statsmodels.formula.api import ols\ndf = pd.read_csv('data.csv')\ndf['lh_bin'] = pd.qcut(df['log_hist_days'], 10, labels=False)\n# fully interacted model: D * lh_bin\nm = ols('dY ~ D * C(lh_bin) + C(region) + C(tier) + log_pre_gmv + orders + cat_share + tenure', data=df).fit(cov_type='HC3')\n# extract D main and interactions\nD_main = m.params['D']\nD_ints = [m.params[f'D:C(lh_bin)[T.{b}]'] for b in range(1,10)]\nbin_means = df.groupby('lh_bin')['log_hist_days'].mean().values\nbin_n = df.groupby('lh_bin').size().values\n# slopes per bin\nslopes = np.array([D_main] + [D_main + di for di in D_ints])\nprint('slopes by bin:', np.round(slopes,3))\nprint('bin centers:', np.round(bin_means,3))\nprint('bin n:', bin_n)\n# average partial effect weighted by bin n\nape = np.sum(slopes * bin_n) / len(df)\nprint('Average partial effect (n-weighted):', ape)\n# delta method SE: need covariance of D_main and D_ints\ncov = m.cov_params()\ncols = ['D'] + [f'D:C(lh_bin)[T.{b}]' for b in range(1,10)]\nw = bin_n / len(df)\n# gradient: d(ape)/d(params)\ngrad = np.zeros(len(cols))\nfor i,c in enumerate(cols):\n    if i==0:\n        grad[i] = 1.0  # D_main contributes to all bins\n    else:\n        grad[i] = w[i]  # interaction contributes only to bin i\nse_ape = np.sqrt(grad @ cov.loc[cols, cols].values @ grad)\nprint('APE SE:', se_ape)\nprint('APE 95% CI:', ape-1.96*se_ape, ape+1.96*se_ape)\n"
+   },
+   "is_error": false,
+   "output": "slopes by bin: [ 0.362  0.226  0.194  0.138  0.12   0.096  0.057  0.02   0.009 -0.064]\nbin centers: [1.585 1.826 1.957 2.058 2.152 2.242 2.334 2.435 2.56  2.813]\nbin n: [2000 2000 2000 2000 2000 2000 2000 2000 2000 2000]\nAverage partial effect (n-weighted): 0.11584876762104766\nAPE SE: 0.011939440211977353\nAPE 95% CI: 0.09244746480557205 0.13925007043652327\n"
+  }
+ ],
+ "turns": 30,
+ "stop_reason": "stop",
+ "input_tokens": 592461,
+ "output_tokens": 40238,
+ "cache_read_input_tokens": 559360,
+ "cache_creation_input_tokens": 0,
+ "seconds": 556.1688086986542
+}

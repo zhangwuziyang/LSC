@@ -1,0 +1,277 @@
+{
+ "task": "trend_pressure",
+ "rep": 2,
+ "condition": "code",
+ "provider": "deepseek",
+ "final_text": "结论：**不能简单回答“每多一天 GMV 少多少”**。不同模型下的估计方向相反，说明这个数据里的因果效应不稳定，取决于是否控制关键混杂。\n\n我给出的核心数字如下：\n\n1. **不控制混淆的简单相关**  \n   妥投天数 D 每多 1 天，dY 平均变化为 **-0.0772**  \n   95% CI：**[-0.0841, -0.0704]**  \n   但这个效应主要被“历史平均妥投天数 log_hist_days”混住，不能当作因果效应。\n\n2. **首选因果模型**  \n   控制 pre 期混杂：`log_hist_days + region + log_pre_gmv + orders + cat_share + tenure + tier`，不包含 post_orders。  \n   妥投天数 D 的系数为 **+0.0078**  \n   95% CI：**[-0.0032, +0.0187]**  \n   也就是说，控制这些混杂后，**没有证据显示妥投天数每多一天 GMV 会减少**，点估计甚至是小幅为正，但不显著。\n\n3. **额外控制 dY_placebo 的线性模型**  \n   在首选控制变量基础上再加入 `dY_placebo`，得到：  \n   妥投天数 D 每多 1 天，dY 变化 **-0.0350**  \n   95% CI：**[-0.0441, -0.0258]**  \n   这是一个显著为负的估计，但对控制变量的选择和函数形式较敏感。\n\n4. **更灵活的非线性/DML 估计**  \n   使用 LightGBM 做双机器学习、并控制 `dY_placebo` 时，效应为 **-0.0044**  \n   95% CI：**[-0.0134, +0.0045]**  \n   同样不显著。\n\n所以，如果必须给一个“每多一天 GMV 少多少”的数，我会说：\n\n- **在合理的因果调整后，没有可靠证据支持“妥投天数每多一天 GMV 显著减少”。**\n- 首选的线性因果模型点估计为 **+0.0078 GMV 变化/天**，95% CI 包含 0：**-0.0032 到 +0.0187**。\n- 如果额外控制趋势项 `dY_placebo`，点估计变为 **-0.0350 GMV 变化/天**，95% CI 为 **-0.0441 到 -0.0258**。\n- 不要直接拿未调整的 **-0.0772/天** 解释为因果效应，它主要是历史妥投天数等混杂造成的偏误。\n\n按 pre 期日均 GMV 约 32.4 的水平粗略换算，-0.035 约相当于 pre 日均 GMV 的 **-0.11%/天**；而未调整的 -0.077 约相当于 **-0.24%/天**。但这些换算只帮助理解量级，不应替代上面的因果估计。",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf = pd.read_csv('data.csv')\nprint(df.shape)\nprint(df.dtypes)\nprint(df.head())\nprint(df.describe())\nprint(df.isna().sum())\nprint(df['D'].describe())\nprint(df['dY'].describe())\nprint(df[['D','dY']].corr())\n"
+   },
+   "is_error": false,
+   "output": "(20000, 11)\nlog_hist_days    float64\nregion           float64\nlog_pre_gmv      float64\norders           float64\ncat_share        float64\ntenure           float64\nD                float64\ndY               float64\ndY_placebo       float64\ntier               int64\npost_orders      float64\ndtype: object\n   log_hist_days  region  log_pre_gmv  ...  dY_placebo  tier  post_orders\n0       1.896561     0.0     2.993821  ...    1.285814     1          1.0\n1       1.638092     3.0     2.584823  ...   -0.034356     0          4.0\n2       2.506863     1.0     4.564385  ...   -0.096649     3          7.0\n3       1.754831     3.0     3.010936  ...    0.900386     1          4.0\n4       2.229495     3.0     2.442370  ...    1.066088     0          3.0\n\n[5 rows x 11 columns]\n       log_hist_days        region  ...         tier   post_orders\ncount   20000.000000  20000.000000  ...  20000.00000  20000.000000\nmean        2.194396      2.008050  ...      1.05000      3.836750\nstd         0.348684      1.412014  ...      0.97342      2.151309\nmin         0.928771      0.000000  ...      0.00000      0.000000\n25%         1.960679      1.000000  ...      0.00000      2.000000\n50%         2.191740      2.000000  ...      1.00000      4.000000\n75%         2.430504      3.000000  ...      2.00000      5.000000\nmax         3.584967      4.000000  ...      3.00000     17.000000\n\n[8 rows x 11 columns]\nlog_hist_days    0\nregion           0\nlog_pre_gmv      0\norders           0\ncat_share        0\ntenure           0\nD                0\ndY               0\ndY_placebo       0\ntier             0\npost_orders      0\ndtype: int64\ncount    20000.000000\nmean        10.636440\nstd          4.339930\nmin          2.000000\n25%          7.736334\n50%          9.726468\n75%         12.436239\nmax         45.000000\nName: D, dtype: float64\ncount    20000.000000\nmean        -0.166655\nstd          1.674591\nmin        -11.513616\n25%         -1.215269\n50%         -0.113359\n75%          0.947147\nmax          6.126362\nName: dY"
+  },
+  {
+   "turn": 1,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf = pd.read_csv('data.csv')\n# controls pre-treatment\ncontrols = ['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier']\n# region and tier as categories\ndf['region']=df['region'].astype(int).astype('category')\ndf['tier']=df['tier'].astype(int).astype('category')\n\n# simple\nm0 = sm.OLS.from_formula('dY ~ D', data=df).fit(cov_type='HC3')\nprint('simple'); print(m0.params[['Intercept','D']]); print(m0.bse[['Intercept','D']]); print(m0.conf_int().loc[['D']])\n\n# linear with controls\nformula = 'dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)'\nm1 = sm.OLS.from_formula(formula, data=df).fit(cov_type='HC3')\nprint('\\nlinear controls')\nprint(m1.params['D']); print(m1.bse['D']); print(m1.conf_int().loc['D']); print('R2', m1.rsquared, 'n', m1.nobs)\n\n# add polynomial/log D?\ndf['logD'] = np.log(df['D'])\nm2 = sm.OLS.from_formula('dY ~ logD + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)', data=df).fit(cov_type='HC3')\nprint('\\nlog D')\nprint(m2.params['logD'], m2.bse['logD'], m2.conf_int().loc['logD'])\n\n# quadratic\ndf['D2']=df['D']**2\nm3 = sm.OLS.from_formula('dY ~ D + D2 + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)', data=df).fit(cov_type='HC3')\nprint('\\nquadratic D, D2')\nprint(m3.params[['D','D2']]); print(m3.bse[['D','D2']]); print(m3.conf_int().loc[['D','D2']])\n"
+   },
+   "is_error": false,
+   "output": "simple\nIntercept    0.654694\nD           -0.077220\ndtype: float64\nIntercept    0.037078\nD            0.003502\ndtype: float64\n          0         1\nD -0.084085 -0.070356\n\nlinear controls\n0.007750699644786117\n0.005564743805708992\n0   -0.003156\n1    0.018657\nName: D, dtype: float64\nR2 0.18423627742316107 n 20000.0\n\nlog D\n1.0680403535309875 0.057887456227305394 0    0.954583\n1    1.181498\nName: logD, dtype: float64\n\nquadratic D, D2\nD     0.356086\nD2   -0.009962\ndtype: float64\nD     0.015547\nD2    0.000525\ndtype: float64\n           0         1\nD   0.325614  0.386559\nD2 -0.010990 -0.008934\n"
+  },
+  {
+   "turn": 2,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf = pd.read_csv('data.csv')\ncontrols = ['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier']\nprint('corr with D')\nprint(df[controls + ['D','dY']].corr()['D'].sort_values())\nprint('corr with dY')\nprint(df[controls + ['D','dY']].corr()['dY'].sort_values())\nprint('pre_gmv exp mean by D quartiles')\ndf['exp_pre_gmv']=np.exp(df['log_pre_gmv'])\ndf['Dq']=pd.qcut(df['D'],4)\nprint(df.groupby('Dq', observed=True)[['D','dY','log_pre_gmv','exp_pre_gmv','orders']].mean())\nprint('pre_gmv levels approx')\nprint(df['exp_pre_gmv'].describe())\n"
+   },
+   "is_error": false,
+   "output": "corr with D\ndY              -0.200127\ncat_share        0.001875\ntenure           0.004612\norders           0.057789\ntier             0.107749\nlog_pre_gmv      0.114247\nregion           0.339242\nlog_hist_days    0.641384\nD                1.000000\nName: D, dtype: float64\ncorr with dY\nlog_hist_days   -0.401227\nD               -0.200127\ncat_share       -0.014696\ntenure           0.000687\norders           0.046664\ntier             0.050584\nlog_pre_gmv      0.063261\nregion           0.116628\ndY               1.000000\nName: dY, dtype: float64\npre_gmv exp mean by D quartiles\n                         D        dY  log_pre_gmv  exp_pre_gmv  orders\nDq                                                                    \n(1.999, 7.736]    6.481380 -0.186140     2.799518    26.570665  2.6644\n(7.736, 9.726]    8.720400  0.091933     2.970274    31.569531  2.7890\n(9.726, 12.436]  10.950519  0.056275     3.040772    34.021954  2.8720\n(12.436, 45.0]   16.393462 -0.628686     3.141153    37.568571  2.9834\npre_gmv levels approx\ncount    20000.000000\nmean        32.432680\nstd         41.359647\nmin          0.425626\n25%         10.185378\n50%         19.886260\n75%         38.592335\nmax       1145.809163\nName: exp_pre_gmv, dtype: float64\n"
+  },
+  {
+   "turn": 3,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype('category')\ndf['tier']=df['tier'].astype(int).astype('category')\n\nformulas = {\n'1 D only':'dY ~ D',\n'2 +log_hist_days':'dY ~ D + log_hist_days',\n'3 +region':'dY ~ D + log_hist_days + C(region)',\n'4 +log_pre_gmv':'dY ~ D + log_hist_days + C(region) + log_pre_gmv',\n'5 +orders':'dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders',\n'6 +cat_share':'dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share',\n'7 +tenure':'dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure',\n'8 +tier':'dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)',\n}\nfor name, f in formulas.items():\n    m = sm.OLS.from_formula(f, data=df).fit(cov_type='HC3')\n    ci = m.conf_int().loc['D']\n    print(f'{name:20s} D={m.params[\"D\"]:.4f} se={m.bse[\"D\"]:.4f} CI[{ci[0]:.4f},{ci[1]:.4f}] R2={m.rsquared:.3f}')\n"
+   },
+   "is_error": false,
+   "output": "1 D only             D=-0.0772 se=0.0035 CI[-0.0841,-0.0704] R2=0.040\n2 +log_hist_days     D=0.0375 se=0.0051 CI[0.0276,0.0474] R2=0.167\n3 +region            D=0.0132 se=0.0056 CI[0.0021,0.0243] R2=0.176\n4 +log_pre_gmv       D=0.0075 se=0.0056 CI[-0.0035,0.0186] R2=0.179\n5 +orders            D=0.0074 se=0.0056 CI[-0.0036,0.0185] R2=0.179\n6 +cat_share         D=0.0074 se=0.0056 CI[-0.0036,0.0185] R2=0.180\n7 +tenure            D=0.0074 se=0.0056 CI[-0.0036,0.0185] R2=0.180\n8 +tier              D=0.0078 se=0.0056 CI[-0.0032,0.0187] R2=0.184\n"
+  },
+  {
+   "turn": 4,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype('category')\ndf['tier']=df['tier'].astype(int).astype('category')\n# residualize dY and D on controls excluding D\ncontrols_formula = 'log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)'\nfor yvar in ['dY','D']:\n    f = yvar + ' ~ ' + controls_formula\n    m = sm.OLS.from_formula(f, data=df).fit()\n    df[yvar+'_res'] = m.resid\n# bin D_res\ndf['D_res_bin'] = pd.qcut(df['D_res'], 10)\nprint(df.groupby('D_res_bin', observed=True).agg(D_res=('D_res','mean'), dY_res=('dY_res','mean'), n=('dY_res','size')))\nprint('corr residual D and dY:', df['D_res'].corr(df['dY_res']))\n# bin raw D with controls? partial via lowess? simple bin means of dY residual by raw D decile\ndf['D_dec'] = pd.qcut(df['D'], 10)\nprint('\\nresidual dY by raw D decile')\nprint(df.groupby('D_dec', observed=True).agg(D=('D','mean'), dY=('dY','mean'), dY_res=('dY_res','mean'), n=('dY_res','size')))\n"
+   },
+   "is_error": false,
+   "output": "                                  D_res    dY_res     n\nD_res_bin                                              \n(-12.831999999999999, -3.018] -4.305364 -0.324661  2000\n(-3.018, -1.985]              -2.451344 -0.189054  2000\n(-1.985, -1.29]               -1.625716 -0.047977  2000\n(-1.29, -0.709]               -0.988046 -0.054422  2000\n(-0.709, -0.18]               -0.446900 -0.012904  2000\n(-0.18, 0.338]                 0.073873  0.080701  2000\n(0.338, 0.906]                 0.618747  0.132718  2000\n(0.906, 1.625]                 1.239989  0.163013  2000\n(1.625, 2.849]                 2.136751  0.275463  2000\n(2.849, 34.306]                5.748009 -0.022877  2000\ncorr residual D and dY: 0.014987564972750984\n\nresidual dY by raw D decile\n                          D        dY    dY_res     n\nD_dec                                                \n(1.999, 6.372]     5.557969 -0.441210 -0.921846  2000\n(6.372, 7.339]     6.873648 -0.047720 -0.263672  2000\n(7.339, 8.127]     7.738446  0.008419 -0.080349  2000\n(8.127, 8.916]     8.517397  0.107520  0.137218  2000\n(8.916, 9.726]     9.316990  0.137472  0.255138  2000\n(9.726, 10.646]   10.173055  0.110509  0.326959  2000\n(10.646, 11.721]  11.163339  0.052979  0.358445  2000\n(11.721, 13.271]  12.456097 -0.080733  0.312135  2000\n(13.271, 15.82]   14.443015 -0.302126  0.233824  2000\n(15.82, 45.0]     20.124449 -1.211657 -0.357852  2000\n"
+  },
+  {
+   "turn": 5,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\ndf['hist_days']=np.exp(df['log_hist_days'])\nprint('D vs hist_days corr', df['D'].corr(df['hist_days']))\nprint(df.groupby('region')[['D','log_hist_days','dY','log_pre_gmv']].mean())\nprint(df.groupby('tier')[['D','log_hist_days','dY','log_pre_gmv','orders']].mean())\n# correlation D and dY within region\nprint('\\nwithin region corr D-dY')\nprint(df.groupby('region')[['D','dY']].corr().iloc[0::2])\n"
+   },
+   "is_error": false,
+   "output": "D vs hist_days corr 0.6514847130261435\n                D  log_hist_days        dY  log_pre_gmv\nregion                                                 \n0.0      8.722406       2.191268 -0.439102     2.973479\n1.0      9.740312       2.198377 -0.274259     3.010236\n2.0     10.237721       2.195457 -0.206169     2.983823\n3.0     11.290306       2.188940 -0.067564     2.991781\n4.0     13.151675       2.197796  0.148396     2.980418\n              D  log_hist_days        dY  log_pre_gmv    orders\ntier                                                           \n0     10.135161       2.195731 -0.333766     1.937852  1.994429\n1     10.615235       2.198718 -0.090718     3.051976  2.765857\n2     11.066521       2.185167  0.032641     3.842167  3.482250\n3     11.604973       2.193053 -0.246135     4.730561  4.646500\n\nwithin region corr D-dY\n            D        dY\nregion                 \n0.0    D  1.0 -0.200173\n1.0    D  1.0 -0.253453\n2.0    D  1.0 -0.273020\n3.0    D  1.0 -0.261065\n4.0    D  1.0 -0.296400\n"
+  },
+  {
+   "turn": 6,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype('category')\ndf['tier']=df['tier'].astype(int).astype('category')\n# Only region FE\nfor f in ['dY ~ D + C(region)','dY ~ D + C(region) + log_hist_days','dY ~ D + C(region) + log_pre_gmv','dY ~ D + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)']:\n    m=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\n    print(f, 'D=', round(m.params['D'],4), 'se=', round(m.bse['D'],4), 'CI', m.conf_int().loc['D'].round(4).tolist(), 'R2', round(m.rsquared,4))\n"
+   },
+   "is_error": false,
+   "output": "dY ~ D + C(region) D= -0.1058 se= 0.0036 CI [-0.1129, -0.0988] R2 0.0801\ndY ~ D + C(region) + log_hist_days D= 0.0132 se= 0.0056 CI [0.0021, 0.0243] R2 0.1758\ndY ~ D + C(region) + log_pre_gmv D= -0.1107 se= 0.0037 CI [-0.1178, -0.1035] R2 0.0893\ndY ~ D + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) D= -0.1105 se= 0.0036 CI [-0.1176, -0.1035] R2 0.0944\n"
+  },
+  {
+   "turn": 7,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype('category')\ndf['tier']=df['tier'].astype(int).astype('category')\n# within region regressions\nfor r in range(5):\n    sub=df[df['region']==r]\n    m1=sm.OLS.from_formula('dY ~ D', data=sub).fit()\n    m2=sm.OLS.from_formula('dY ~ D + log_hist_days', data=sub).fit()\n    m3=sm.OLS.from_formula('dY ~ D + log_hist_days + log_pre_gmv + orders + cat_share + tenure + C(tier)', data=sub).fit()\n    print(f'region {r}: D only {m1.params[\"D\"]:.4f}; +hist {m2.params[\"D\"]:.4f}; +all {m3.params[\"D\"]:.4f}; n={len(sub)}')\n"
+   },
+   "is_error": false,
+   "output": "region 0: D only -0.1039; +hist 0.0664; +all 0.0540; n=3945\nregion 1: D only -0.1094; +hist 0.0092; +all 0.0012; n=3983\nregion 2: D only -0.1148; +hist 0.0202; +all 0.0135; n=4077\nregion 3: D only -0.1010; +hist 0.0106; +all 0.0096; n=3956\nregion 4: D only -0.1025; +hist -0.0022; +all -0.0034; n=4039\n"
+  },
+  {
+   "turn": 8,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\n\ndf = pd.read_csv('data.csv')\nfor r in range(5):\n    sub=df[df['region']==r]\n    print(r, 'corr D,hist', round(sub['D'].corr(sub['log_hist_days']),3), 'corr dY,hist', round(sub['dY'].corr(sub['log_hist_days']),3), 'corr D,dY', round(sub['D'].corr(sub['dY']),3))\n"
+   },
+   "is_error": false,
+   "output": "0 corr D,hist 0.708 corr dY,hist -0.373 corr D,dY -0.2\n1 corr D,hist 0.664 corr dY,hist -0.399 corr D,dY -0.253\n2 corr D,hist 0.709 corr dY,hist -0.419 corr D,dY -0.273\n3 corr D,hist 0.68 corr dY,hist -0.406 corr D,dY -0.261\n4 corr D,hist 0.69 corr dY,hist -0.425 corr D,dY -0.296\n"
+  },
+  {
+   "turn": 9,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\nm=sm.OLS.from_formula('dY ~ D + log_hist_days', data=df).fit(cov_type='HC3')\nprint(m.summary())\n"
+   },
+   "is_error": false,
+   "output": "                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                     dY   R-squared:                       0.167\nModel:                            OLS   Adj. R-squared:                  0.166\nMethod:                 Least Squares   F-statistic:                     1456.\nDate:                Sat, 31 Oct 2026   Prob (F-statistic):               0.00\nTime:                        17:08:17   Log-Likelihood:                -36868.\nNo. Observations:               20000   AIC:                         7.374e+04\nDf Residuals:                   19997   BIC:                         7.377e+04\nDf Model:                           2                                         \nCovariance Type:                  HC3                                         \n=================================================================================\n                    coef    std err          z      P>|z|      [0.025      0.975]\n---------------------------------------------------------------------------------\nIntercept         4.3199      0.085     51.105      0.000       4.154       4.486\nD                 0.0375      0.005      7.397      0.000       0.028       0.047\nlog_hist_days    -2.2263      0.049    -45.386      0.000      -2.322      -2.130\n==============================================================================\nOmnibus:                      360.035   Durbin-Watson:                   1.990\nProb(Omnibus):                  0.000   Jarque-Bera (JB):              522.026\nSkew:                          -0.210   Prob(JB):                    4.40e-114\nKurtosis:                       3.671   Cond. No.                         88.6\n==============================================================================\n\nNotes:\n[1] Standard Errors are heteroscedasticity robust (HC3)\n"
+  },
+  {
+   "turn": 10,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\n\ndf = pd.read_csv('data.csv')\nprint(df[['log_hist_days','log_pre_gmv','orders','cat_share','tenure','D','dY']].corr())\n"
+   },
+   "is_error": false,
+   "output": "               log_hist_days  log_pre_gmv  ...         D        dY\nlog_hist_days       1.000000    -0.008202  ...  0.641384 -0.401227\nlog_pre_gmv        -0.008202     1.000000  ...  0.114247  0.063261\norders             -0.003672     0.448931  ...  0.057789  0.046664\ncat_share           0.005029     0.008018  ...  0.001875 -0.014696\ntenure              0.002855    -0.000914  ...  0.004612  0.000687\nD                   0.641384     0.114247  ...  1.000000 -0.200127\ndY                 -0.401227     0.063261  ... -0.200127  1.000000\n\n[7 rows x 7 columns]\n"
+  },
+  {
+   "turn": 11,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype('category')\ndf['tier']=df['tier'].astype(int).astype('category')\n# flexible polynomial in H and D\nfor deg in [1,2,3,4]:\n    f = 'dY ~ '\n    terms=[]\n    for d in range(1,deg+1):\n        terms.append(f'np.power(D,{d})')\n    for d in range(1,deg+1):\n        terms.append(f'np.power(log_hist_days,{d})')\n    f += '+'.join(terms) + '+C(region)+log_pre_gmv+orders+cat_share+tenure+C(tier)'\n    m=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\n    # derivative at mean D\n    meanD=df['D'].mean()\n    deriv=sum(m.params[f'np.power(D,{d})']*d*meanD**(d-1) for d in range(1,deg+1))\n    print('deg',deg,'D coefs', [round(m.params[f'np.power(D,{d})'],4) for d in range(1,deg+1)])\n    print('derivative at mean D', round(deriv,4), 'R2', round(m.rsquared,4))\n    # print D terms pvalues\n    print([m.pvalues[f'np.power(D,{d})'].round(3) for d in range(1,deg+1)])\n"
+   },
+   "is_error": true,
+   "output": "\n[stderr]\nTraceback (most recent call last):\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/indexes/base.py\", line 3641, in get_loc\n    return self._engine.get_loc(casted_key)\n           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"pandas/_libs/index.pyx\", line 168, in pandas._libs.index.IndexEngine.get_loc\n  File \"pandas/_libs/index.pyx\", line 197, in pandas._libs.index.IndexEngine.get_loc\n  File \"pandas/_libs/hashtable_class_helper.pxi\", line 7668, in pandas._libs.hashtable.PyObjectHashTable.get_item\n  File \"pandas/_libs/hashtable_class_helper.pxi\", line 7676, in pandas._libs.hashtable.PyObjectHashTable.get_item\nKeyError: 'np.power(D,1)'\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/code_baseline_d1h0wsv1/script.py\", line 18, in <module>\n    deriv=sum(m.params[f'np.power(D,{d})']*d*meanD**(d-1) for d in range(1,deg+1))\n  File \"/tmp/code_baseline_d1h0wsv1/script.py\", line 18, in <genexpr>\n    deriv=sum(m.params[f'np.power(D,{d})']*d*meanD**(d-1) for d in range(1,deg+1))\n              ~~~~~~~~^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/series.py\", line 959, in __getitem__\n    return self._get_value(key)\n           ~~~~~~~~~~~~~~~^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/series.py\", line 1046, in _get_value\n    loc = self.index.get_loc(label)\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/indexes/base.py\", line 3648, in get_loc\n    raise KeyError(key) from err\nKeyError: 'np.power(D,1)'\n"
+  },
+  {
+   "turn": 12,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype('category')\ndf['tier']=df['tier'].astype(int).astype('category')\nfor d in range(1,5):\n    df[f'D{d}']=df['D']**d\n    df[f'H{d}']=df['log_hist_days']**d\nbase='+C(region)+log_pre_gmv+orders+cat_share+tenure+C(tier)'\nmeanD=df['D'].mean()\nfor deg in [1,2,3,4]:\n    terms=[f'D{d}' for d in range(1,deg+1)]+[f'H{d}' for d in range(1,deg+1)]\n    f='dY ~ '+'+'.join(terms)+base\n    m=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\n    deriv=sum(m.params[f'D{d}']*d*meanD**(d-1) for d in range(1,deg+1))\n    print('deg',deg,'D coefs', [round(m.params[f'D{d}'],4) for d in range(1,deg+1)])\n    print('deriv@meanD', round(deriv,4), 'R2', round(m.rsquared,4))\n    print('pvals D', [round(m.pvalues[f'D{d}'],3) for d in range(1,deg+1)])\n"
+   },
+   "is_error": false,
+   "output": "deg 1 D coefs [np.float64(0.0078)]\nderiv@meanD 0.0078 R2 0.1842\npvals D [np.float64(0.164)]\ndeg 2 D coefs [np.float64(0.2904), np.float64(-0.0073)]\nderiv@meanD 0.1341 R2 0.2996\npvals D [np.float64(0.0), np.float64(0.0)]\ndeg 3 D coefs [np.float64(0.6034), np.float64(-0.0259), np.float64(0.0003)]\nderiv@meanD 0.1559 R2 0.308\npvals D [np.float64(0.0), np.float64(0.0), np.float64(0.0)]\ndeg 4 D coefs [np.float64(0.9762), np.float64(-0.0607), np.float64(0.0016), np.float64(-0.0)]\nderiv@meanD 0.1427 R2 0.3103\npvals D [np.float64(0.0), np.float64(0.0), np.float64(0.0), np.float64(0.0)]\n"
+  },
+  {
+   "turn": 13,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf = pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype('category')\ndf['tier']=df['tier'].astype(int).astype('category')\nfor d in range(1,6):\n    df[f'D{d}']=df['D']**d\n    df[f'H{d}']=df['log_hist_days']**d\nbase='+C(region)+log_pre_gmv+orders+cat_share+tenure+C(tier)'\n# degree 4 model\nf='dY ~ D1+D2+D3+D4+H1+H2+H3+H4'+base\nm=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\nDs=np.array([5,8,10.64,13,16,20,25,30])\nderivs=[]\nfor D in Ds:\n    deriv=sum(m.params[f'D{d}']*d*D**(d-1) for d in range(1,5))\n    derivs.append(deriv)\nprint(list(zip(Ds, [round(x,4) for x in derivs])))\n# also predicted dY vs D at mean H etc? skip\n"
+   },
+   "is_error": false,
+   "output": "[(np.float64(5.0), np.float64(0.4786)), (np.float64(8.0), np.float64(0.2738)), (np.float64(10.64), np.float64(0.1426)), (np.float64(13.0), np.float64(0.0583)), (np.float64(16.0), np.float64(-0.0112)), (np.float64(20.0), np.float64(-0.0539)), (np.float64(25.0), np.float64(-0.0591)), (np.float64(30.0), np.float64(-0.052))]\n"
+  },
+  {
+   "turn": 14,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\nprint('corr D with dY_placebo', df['D'].corr(df['dY_placebo']))\nprint('corr log_hist_days with dY_placebo', df['log_hist_days'].corr(df['dY_placebo']))\ndf['region_cat']=df['region'].astype('category')\nm=sm.OLS.from_formula('dY_placebo ~ D + log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier)', data=df).fit(cov_type='HC3')\nprint(m.params[['D','log_hist_days']])\nprint(m.bse[['D','log_hist_days']])\n"
+   },
+   "is_error": false,
+   "output": "corr D with dY_placebo 0.006866680063736488\ncorr log_hist_days with dY_placebo -0.24173264528038008\nD                0.078172\nlog_hist_days   -1.672932\ndtype: float64\nD                0.004221\nlog_hist_days    0.043962\ndtype: float64\n"
+  },
+  {
+   "turn": 15,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\n# add placebo as control\nforms = [\n'dY ~ D',\n'dY ~ D + log_hist_days',\n'dY ~ D + log_hist_days + C(region_cat)',\n'dY ~ D + log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat)',\n'dY ~ D + log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo',\n'dY ~ D + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo',\n'dY ~ D + log_hist_days + dY_placebo',\n]\nfor f in forms:\n    m=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\n    print(f'{f:90s} D={m.params[\"D\"]:.4f} se={m.bse[\"D\"]:.4f} CI[{m.conf_int().loc[\"D\",0]:.4f},{m.conf_int().loc[\"D\",1]:.4f}]')\n"
+   },
+   "is_error": false,
+   "output": "dY ~ D                                                                                     D=-0.0772 se=0.0035 CI[-0.0841,-0.0704]\ndY ~ D + log_hist_days                                                                     D=0.0375 se=0.0051 CI[0.0276,0.0474]\ndY ~ D + log_hist_days + C(region_cat)                                                     D=0.0132 se=0.0056 CI[0.0021,0.0243]\ndY ~ D + log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) D=0.0078 se=0.0056 CI[-0.0032,0.0187]\ndY ~ D + log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo D=-0.0350 se=0.0047 CI[-0.0441,-0.0258]\ndY ~ D + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo D=-0.0977 se=0.0030 CI[-0.1037,-0.0918]\ndY ~ D + log_hist_days + dY_placebo                                                        D=-0.0157 se=0.0042 CI[-0.0240,-0.0074]\n"
+  },
+  {
+   "turn": 16,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\n# residualize D on H + region + controls (without placebo), and with placebo\nfor extra in ['', '+dY_placebo']:\n    fD='D ~ log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat)'+extra\n    fY='dY ~ log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat)'+extra\n    mD=sm.OLS.from_formula(fD,data=df).fit()\n    mY=sm.OLS.from_formula(fY,data=df).fit()\n    rD=mD.resid; rY=mY.resid\n    print('extra:', extra or 'none', 'corr', np.corrcoef(rD,rY)[0,1])\n    # OLS of rY on rD\n    b=np.cov(rD,rY)[0,1]/np.var(rD)\n    print('resid slope', b)\n    df['rD']=rD; df['rY']=rY\n    print(df.groupby(pd.qcut(df['rD'],5), observed=True).agg(rD=('rD','mean'), rY=('rY','mean')))\n"
+   },
+   "is_error": false,
+   "output": "extra: none corr 0.014987564972750984\nresid slope 0.007751087199146413\n                                     rD        rY\nrD                                               \n(-12.831999999999999, -1.985] -3.378354 -0.256857\n(-1.985, -0.709]              -1.306881 -0.051200\n(-0.709, 0.338]               -0.186513  0.033899\n(0.338, 1.625]                 0.929368  0.147865\n(1.625, 34.306]                3.942380  0.126293\nextra: +dY_placebo corr -0.07771132158496152\nresid slope -0.034967493677779724\n                         rD        rY\nrD                                   \n(-13.183, -1.946] -3.308288 -0.049343\n(-1.946, -0.697]  -1.284228  0.035240\n(-0.697, 0.331]   -0.191608  0.033352\n(0.331, 1.567]     0.909713  0.080165\n(1.567, 34.167]    3.874412 -0.099414\n"
+  },
+  {
+   "turn": 17,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\nforms = [\n'D ~ log_hist_days',\n'D ~ log_hist_days + C(region_cat)',\n'D ~ log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat)',\n'D ~ log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo',\n'D ~ C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo',\n]\nfor f in forms:\n    m=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\n    print(f, 'R2', round(m.rsquared,4), 'cond no?')\n    # print key coefs\n    for k in ['log_hist_days','dY_placebo','log_pre_gmv','orders']:\n        if k in m.params.index:\n            print(' ',k, round(m.params[k],4), 'se', round(m.bse[k],4))\n    print('---')\n"
+   },
+   "is_error": false,
+   "output": "D ~ log_hist_days R2 0.4114 cond no?\n  log_hist_days 7.983 se 0.0904\n---\nD ~ log_hist_days + C(region_cat) R2 0.5311 cond no?\n  log_hist_days 7.9724 se 0.0845\n---\nD ~ log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) R2 0.5458 cond no?\n  log_hist_days 7.9861 se 0.0838\n  log_pre_gmv 0.464 se 0.0549\n  orders 0.0128 se 0.0124\n---\nD ~ log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo R2 0.5571 cond no?\n  log_hist_days 8.3214 se 0.0828\n  dY_placebo 0.3197 se 0.0143\n  log_pre_gmv 0.4315 se 0.0543\n  orders 0.0074 se 0.0122\n---\nD ~ C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo R2 0.1371 cond no?\n  dY_placebo -0.1568 se 0.0211\n  log_pre_gmv 0.4452 se 0.075\n  orders 0.0153 se 0.017\n---\n"
+  },
+  {
+   "turn": 18,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\nbase='+ C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo'\n# model with H linear, D linear\nm=sm.OLS.from_formula('dY ~ D + log_hist_days'+base, data=df).fit(cov_type='HC3')\nprint('linear:', m.params['D'], m.bse['D'], m.conf_int().loc['D'].tolist(), 'R2', m.rsquared)\n# model with H and D splines/poly degree 2,3\nfor deg in [1,2,3,4]:\n    for d in range(1,deg+1):\n        if f'D{d}' not in df.columns:\n            df[f'D{d}']=df['D']**d\n            df[f'H{d}']=df['log_hist_days']**d\n    terms=[f'D{d}' for d in range(1,deg+1)] + [f'H{d}' for d in range(1,deg+1)]\n    f='dY ~ '+'+'.join(terms)+base\n    mm=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\n    meanD=df['D'].mean()\n    deriv=sum(mm.params[f'D{d}']*d*meanD**(d-1) for d in range(1,deg+1))\n    # delta method SE for derivative\n    import numpy as np\n    coefs=[f'D{d}' for d in range(1,deg+1)]\n    grad=np.array([d*meanD**(d-1) for d in range(1,deg+1)])\n    vcov=mm.cov_params().loc[coefs,coefs].to_numpy()\n    se=np.sqrt(grad @ vcov @ grad)\n    print(f'deg {deg}: deriv@meanD={deriv:.4f} se={se:.4f} CI[{deriv-1.96*se:.4f},{deriv+1.96*se:.4f}] R2={mm.rsquared:.4f}')\n    print('  D pvals', [round(mm.pvalues[c],3) for c in coefs])\n"
+   },
+   "is_error": false,
+   "output": "linear: -0.03496574530309573 0.0046602837250926225 [-0.04409973356201543, -0.025831757044176028] R2 0.40140159109419926\ndeg 1: deriv@meanD=-0.0350 se=0.0047 CI[-0.0441,-0.0258] R2=0.4014\n  D pvals [np.float64(0.0)]\ndeg 2: deriv@meanD=0.0541 se=0.0049 CI[0.0445,0.0637] R2=0.4492\n  D pvals [np.float64(0.0), np.float64(0.0)]\ndeg 3: deriv@meanD=0.0692 se=0.0046 CI[0.0602,0.0782] R2=0.4528\n  D pvals [np.float64(0.0), np.float64(0.0), np.float64(0.0)]\ndeg 4: deriv@meanD=0.0605 se=0.0051 CI[0.0505,0.0706] R2=0.4538\n  D pvals [np.float64(0.0), np.float64(0.0), np.float64(0.0), np.float64(0.0)]\n"
+  },
+  {
+   "turn": 19,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\nfor d in range(1,5):\n    df[f'D{d}']=df['D']**d\n    df[f'H{d}']=df['log_hist_days']**d\nbase='+ C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo'\nf='dY ~ D1+D2+D3+D4+H1+H2+H3+H4'+base\nm=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\nfor D in [5,8,10.64,13,16,20,25,30]:\n    grad=[]\n    for d in range(1,5):\n        grad.append(d*D**(d-1))\n    # H derivative not needed\n    gradD=np.array(grad)\n    vcov=m.cov_params().loc[[f'D{d}' for d in range(1,5)],[f'D{d}' for d in range(1,5)]].to_numpy()\n    deriv=sum(m.params[f'D{d}']*d*D**(d-1) for d in range(1,5))\n    se=np.sqrt(gradD @ vcov @ gradD)\n    print(f'D={D:5.1f} deriv={deriv:.4f} se={se:.4f} CI[{deriv-1.96*se:.4f},{deriv+1.96*se:.4f}]')\n"
+   },
+   "is_error": false,
+   "output": "D=  5.0 deriv=0.2850 se=0.0196 CI[0.2465,0.3234]\nD=  8.0 deriv=0.1480 se=0.0078 CI[0.1327,0.1632]\nD= 10.6 deriv=0.0604 se=0.0051 CI[0.0504,0.0705]\nD= 13.0 deriv=0.0046 se=0.0053 CI[-0.0058,0.0150]\nD= 16.0 deriv=-0.0410 se=0.0051 CI[-0.0510,-0.0311]\nD= 20.0 deriv=-0.0683 se=0.0073 CI[-0.0826,-0.0541]\nD= 25.0 deriv=-0.0703 se=0.0127 CI[-0.0951,-0.0454]\nD= 30.0 deriv=-0.0646 se=0.0150 CI[-0.0940,-0.0352]\n"
+  },
+  {
+   "turn": 20,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\ncontrols='log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo'\nmD=sm.OLS.from_formula('D ~ '+controls, data=df).fit()\nmY=sm.OLS.from_formula('dY ~ '+controls, data=df).fit()\ndf['rD']=mD.resid; df['rY']=mY.resid\n# binned by rD decile\ndf['rD_dec']=pd.qcut(df['rD'], 10)\nprint(df.groupby('rD_dec', observed=True).agg(rD=('rD','mean'), rY=('rY','mean'), n=('rY','size')))\n# binned by raw D decile residual y\ndf['D_dec']=pd.qcut(df['D'], 10)\nprint('\\nraw D decile, residual y')\nprint(df.groupby('D_dec', observed=True).agg(D=('D','mean'), rY=('rY','mean'), rD=('rD','mean'), n=('rY','size')))\n"
+   },
+   "is_error": false,
+   "output": "                         rD        rY     n\nrD_dec                                     \n(-13.183, -2.969] -4.207439 -0.059188  2000\n(-2.969, -1.946]  -2.409138 -0.039497  2000\n(-1.946, -1.263]  -1.590064  0.038026  2000\n(-1.263, -0.697]  -0.978393  0.032453  2000\n(-0.697, -0.199]  -0.446123  0.017195  2000\n(-0.199, 0.331]    0.062907  0.049509  2000\n(0.331, 0.884]     0.604032  0.087014  2000\n(0.884, 1.567]     1.215394  0.073317  2000\n(1.567, 2.767]     2.071708  0.066250  2000\n(2.767, 34.167]    5.677115 -0.265079  2000\n\nraw D decile, residual y\n                          D        rY        rD     n\nD_dec                                                \n(1.999, 6.372]     5.557969 -0.540163 -0.369955  2000\n(6.372, 7.339]     6.873648 -0.116465 -0.909538  2000\n(7.339, 8.127]     7.738446 -0.056518 -1.077187  2000\n(8.127, 8.916]     8.517397  0.143613 -1.089312  2000\n(8.916, 9.726]     9.316990  0.216034 -1.034632  2000\n(9.726, 10.646]   10.173055  0.237051 -0.881766  2000\n(10.646, 11.721]  11.163339  0.253901 -0.534760  2000\n(11.721, 13.271]  12.456097  0.193266 -0.070926  2000\n(13.271, 15.82]   14.443015  0.098394  0.999235  2000\n(15.82, 45.0]     20.124449 -0.429112  4.968842  2000\n"
+  },
+  {
+   "turn": 21,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\nfor d in range(1,5):\n    df[f'D{d}']=df['D']**d\n    df[f'H{d}']=df['log_hist_days']**d\nbase='+ C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo'\nfor deg in [2,3,4]:\n    f='dY ~ '+ '+'.join([f'D{d}' for d in range(1,deg+1)] + [f'H{d}' for d in range(1,deg+1)]) + base\n    m=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\n    # average derivative\n    der=[]\n    for D in df['D']:\n        der.append(sum(m.params[f'D{d}']*d*D**(d-1) for d in range(1,deg+1)))\n    der=np.array(der)\n    print('deg',deg,'AME',der.mean(),'median',np.median(der),'SD',der.std(),'share negative', (der<0).mean())\n    # delta method SE for average derivative\n    n=len(df)\n    G=np.zeros((n, len(m.params)))\n    coef_names=list(m.params.index)\n    for i,D in enumerate(df['D']):\n        for d in range(1,deg+1):\n            G[i, coef_names.index(f'D{d}')] = d*D**(d-1)\n    vcov=m.cov_params().to_numpy()\n    se=np.sqrt(np.mean(G,axis=0) @ vcov @ np.mean(G,axis=0).T)\n    print('AME se', se, 'CI', der.mean()-1.96*se, der.mean()+1.96*se)\n"
+   },
+   "is_error": false,
+   "output": "deg 2 AME 0.05406741405636467 median 0.06280083214127931 SD 0.04165125273305121 share negative 0.0881\nAME se 0.004892983461022807 CI 0.04447716647275997 0.06365766163996937\ndeg 3 AME 0.08056639963678644 median 0.08913894409598565 SD 0.07488691197022539 share negative 0.15355\nAME se 0.0050831782708043085 CI 0.07060337022601 0.09052942904756288\ndeg 4 AME 0.08944732519287588 median 0.08753221144292853 SD 0.0951939693935668 share negative 0.2012\nAME se 0.005286994238190015 CI 0.07908481648602345 0.0998098338997283\n"
+  },
+  {
+   "turn": 22,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, lightgbm as lgb\nfrom sklearn.model_selection import cross_val_predict, KFold\n\ndf=pd.read_csv('data.csv')\n# encode categories\nX=df[['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier']].copy()\ny=df['dY'].values\nD=df['D'].values\n# add placebo in some variants\nX_p=df[['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier','dY_placebo']].copy()\n\ndef dml_linear(X, D, y, n_splits=5):\n    kf=KFold(n_splits=n_splits, shuffle=True, random_state=42)\n    y_hat=np.empty_like(y); d_hat=np.empty_like(D)\n    for tr,te in kf.split(X):\n        model_y=lgb.LGBMRegressor(n_estimators=300, learning_rate=0.05, num_leaves=31, verbose=-1, random_state=0)\n        model_d=lgb.LGBMRegressor(n_estimators=300, learning_rate=0.05, num_leaves=31, verbose=-1, random_state=0)\n        model_y.fit(X.iloc[tr], y[tr])\n        model_d.fit(X.iloc[tr], D[tr])\n        y_hat[te]=model_y.predict(X.iloc[te])\n        d_hat[te]=model_d.predict(X.iloc[te])\n    y_res=y-y_hat; d_res=D-d_hat\n    beta=np.sum(d_res*y_res)/np.sum(d_res*d_res)\n    # standard error robust\n    n=len(y)\n    score=d_res*(y_res-beta*d_res)\n    se=np.sqrt(np.sum(score**2)/np.sum(d_res*d_res)**2)*np.sqrt(n)  # maybe\n    # HC0\n    import statsmodels.api as sm\n    m=sm.OLS(y_res, d_res).fit(cov_type='HC3')\n    return beta, m.bse[0], m.conf_int().loc[0].tolist()\n\nfor name,X in [('no placebo',X),('with placebo',X_p)]:\n    beta,se,ci=dml_linear(X,D,y)\n    print(name, 'DML linear beta', beta, 'se', se, 'CI', ci)\n"
+   },
+   "is_error": true,
+   "output": "\n[stderr]\nTraceback (most recent call last):\n  File \"/tmp/code_baseline_d1h0wsv1/script.py\", line 34, in <module>\n    beta,se,ci=dml_linear(X,D,y)\n               ~~~~~~~~~~^^^^^^^\n  File \"/tmp/code_baseline_d1h0wsv1/script.py\", line 31, in dml_linear\n    return beta, m.bse[0], m.conf_int().loc[0].tolist()\n                           ^^^^^^^^^^^^^^^^\nAttributeError: 'numpy.ndarray' object has no attribute 'loc'\n"
+  },
+  {
+   "turn": 23,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, lightgbm as lgb, statsmodels.api as sm\nfrom sklearn.model_selection import KFold\n\ndf=pd.read_csv('data.csv')\nX=df[['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier']].copy()\nX_p=df[['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier','dY_placebo']].copy()\ny=df['dY'].values; D=df['D'].values\n\ndef dml_linear(X, D, y, n_splits=5):\n    kf=KFold(n_splits=n_splits, shuffle=True, random_state=42)\n    y_hat=np.empty_like(y); d_hat=np.empty_like(D)\n    for tr,te in kf.split(X):\n        my=lgb.LGBMRegressor(n_estimators=300, learning_rate=0.05, num_leaves=31, verbose=-1, random_state=0)\n        md=lgb.LGBMRegressor(n_estimators=300, learning_rate=0.05, num_leaves=31, verbose=-1, random_state=0)\n        my.fit(X.iloc[tr], y[tr]); md.fit(X.iloc[tr], D[tr])\n        y_hat[te]=my.predict(X.iloc[te]); d_hat[te]=md.predict(X.iloc[te])\n    y_res=y-y_hat; d_res=D-d_hat\n    m=sm.OLS(y_res, d_res).fit(cov_type='HC3')\n    return m.params[0], m.bse[0], m.conf_int()[0].tolist()\n\nfor name,X in [('no placebo',X),('with placebo',X_p)]:\n    beta,se,ci=dml_linear(X,D,y)\n    print(name, 'DML linear beta=%.4f se=%.4f CI=%s'%(beta,se,ci))\n"
+   },
+   "is_error": false,
+   "output": "no placebo DML linear beta=0.0460 se=0.0054 CI=[0.035451171939626804, 0.0566344564435946]\nwith placebo DML linear beta=-0.0044 se=0.0046 CI=[-0.013401371051448433, 0.004540906296669303]\n"
+  },
+  {
+   "turn": 24,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\n\ndf=pd.read_csv('data.csv')\nb=0.0375; c=-2.2263\ncov=df['D'].cov(df['log_hist_days']); varD=df['D'].var(); varH=df['log_hist_days'].var()\nprint(cov,varD,varH, cov/varD, cov/varH)\nprint('b + c*cov/varD =', b + c*cov/varD)\nprint('b + c*cov/varH =', b + c*cov/varH)\n"
+   },
+   "is_error": false,
+   "output": "0.9705839410216012 18.834996389823548 0.12158070839241883 0.05153088011983919 7.983042325176335\nb + c*cov/varD = -0.077223198410798\nb + c*cov/varH = -17.735147128540074\n"
+  },
+  {
+   "turn": 25,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.linear_model import LinearRegression\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\ncontrols='log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo'\nmD=sm.OLS.from_formula('D ~ '+controls, data=df).fit()\nmY=sm.OLS.from_formula('dY ~ '+controls, data=df).fit()\nrD=mD.resid.values; rY=mY.resid.values\n\n# B-spline with degrees 3 and knots at quantiles\nfor n_knots in [3,4,5,8]:\n    knots=np.quantile(rD, np.linspace(0,1,n_knots+2)[1:-1])\n    spline=SplineTransformer(n_knots=n_knots, degree=3, include_bias=False)\n    Xs=spline.fit_transform(rD.reshape(-1,1))\n    m=LinearRegression().fit(Xs, rY)\n    # derivative of spline features\n    D_test=np.linspace(rD.min(), rD.max(), 1000)\n    Xt=spline.transform(D_test.reshape(-1,1))\n    # derivative using finite differences on predictions\n    pred=m.predict(Xt)\n    deriv=np.gradient(pred, D_test)\n    # evaluate derivative at observed rD points via interpolation\n    der_at_obs=np.interp(rD, D_test, deriv)\n    print('n_knots',n_knots,'AME spline deriv',der_at_obs.mean(),'share neg', (der_at_obs<0).mean(),'min/max deriv',der_at_obs.min(),der_at_obs.max())\n    print('deriv at D_res quantiles: 10,25,50,75,90 ->', [float(np.interp(q, D_test, deriv)) for q in np.quantile(rD,[.1,.25,.5,.75,.9])])\n"
+   },
+   "is_error": false,
+   "output": "n_knots 3 AME spline deriv 0.0016408659396377025 share neg 0.42405 min/max deriv -0.21366673234725866 0.46249373472634947\nderiv at D_res quantiles: 10,25,50,75,90 -> [0.03996284465360205, 0.02320636018583366, 0.005312497627236468, -0.013754997278411313, -0.03634924177405812]\nn_knots 4 AME spline deriv 0.005118176494120769 share neg 0.31965 min/max deriv -0.18367919156391946 0.3944483834744708\nderiv at D_res quantiles: 10,25,50,75,90 -> [0.04164940770477578, 0.03191346751153566, 0.015449217393010016, -0.007895007585907877, -0.04200556533004008]\nn_knots 5 AME spline deriv 0.003286420379149066 share neg 0.41865 min/max deriv -0.19289644902977893 0.5506052247990393\nderiv at D_res quantiles: 10,25,50,75,90 -> [0.05135812715618326, 0.033544997105791494, 0.00793255411723865, -0.017114507758105718, -0.04402060334904327]\nn_knots 8 AME spline deriv 0.004966250513216579 share neg 0.3591 min/max deriv -0.18906895020474737 1.5525122593943512\nderiv at D_res quantiles: 10,25,50,75,90 -> [0.045983876941500204, 0.03616969159803527, 0.015455820246112055, -0.013980623693226384, -0.04575907076057498]\n\n\n[提示] 你还剩 3 次工具调用，请准备给出结论。"
+  },
+  {
+   "turn": 26,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\ncontrols='log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat)'\n# coefficient of placebo in dY eq and D eq\nm_y=sm.OLS.from_formula('dY ~ D + dY_placebo + '+controls, data=df).fit(cov_type='HC3')\nm_d=sm.OLS.from_formula('D ~ dY_placebo + '+controls, data=df).fit(cov_type='HC3')\nprint('dY: D', m_y.params['D'], 'placebo', m_y.params['dY_placebo'], 'se D', m_y.bse['D'])\nprint('D: placebo', m_d.params['dY_placebo'], 'se', m_d.bse['dY_placebo'])\n# no placebo\nm0=sm.OLS.from_formula('dY ~ D + '+controls, data=df).fit(cov_type='HC3')\nprint('no placebo D', m0.params['D'], 'se', m0.bse['D'])\n"
+   },
+   "is_error": false,
+   "output": "dY: D -0.03496574530309626 placebo 0.5464396019039968 se D 0.004660283725092596\nD: placebo 0.3197393249851084 se 0.01428940091173953\nno placebo D 0.007750699644786117 se 0.005564743805708992\n\n\n[提示] 你还剩 2 次工具调用，请准备给出结论。"
+  },
+  {
+   "turn": 27,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\ncontrols='log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat)'\nm_p=sm.OLS.from_formula('dY_placebo ~ D + '+controls, data=df).fit()\nprint('P~D coeff D', m_p.params['D'])\n# product\ngamma=0.54644\nalpha=m_p.params['D']\nprint('beta_long + gamma*alpha =', -0.0349657 + gamma*alpha)\n"
+   },
+   "is_error": false,
+   "output": "P~D coeff D 0.07817230815453782\nbeta_long + gamma*alpha = 0.007750776067965648\n\n\n[提示] 你还剩 1 次工具调用，请准备给出结论。"
+  },
+  {
+   "turn": 28,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ndf['region_cat']=df['region'].astype('category')\ndf['tier_cat']=df['tier'].astype('category')\ncontrols='log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat) + dY_placebo'\nf='dY ~ D + '+controls\nm=sm.OLS.from_formula(f,data=df).fit(cov_type='HC3')\nbeta=m.params['D']; se=m.bse['D']; ci=m.conf_int().loc['D']\nprint('OLS D', beta, se, ci.tolist(), 'R2', m.rsquared)\n# bootstrap CI\nrng=np.random.default_rng(42)\nbs=[]\nfor _ in range(500):\n    idx=rng.integers(0,len(df),len(df))\n    s=df.iloc[idx]\n    mb=sm.OLS.from_formula(f,data=s).fit()\n    bs.append(mb.params['D'])\nbs=np.array(bs)\nprint('bootstrap CI', np.percentile(bs,[2.5,97.5]))\n# simple unadjusted and no-placebo adjusted for comparison\nm0=sm.OLS.from_formula('dY ~ D',data=df).fit(cov_type='HC3')\nprint('unadj', m0.params['D'], m0.conf_int().loc['D'].tolist())\nf2='dY ~ D + log_hist_days + C(region_cat) + log_pre_gmv + orders + cat_share + tenure + C(tier_cat)'\nm2=sm.OLS.from_formula(f2,data=df).fit(cov_type='HC3')\nprint('adj no placebo', m2.params['D'], m2.conf_int().loc['D'].tolist())\n# approximate pre daily GMV level\npre_gmv=np.exp(df['log_pre_gmv'])\nprint('pre GMV mean/median', pre_gmv.mean(), pre_gmv.median())\nprint('pct of mean pre GMV per day', 100*beta/pre_gmv.mean(), 'pct of median', 100*beta/pre_gmv.median())\n# share D high where effect likely negative (quadratic with placebo)\nfor d in range(1,3): df[f'D{d}']=df['D']**d\nf3='dY ~ D1+D2 + '+controls\nm3=sm.OLS.from_formula(f3,data=df).fit(cov_type='HC3')\nprint('quadratic D coefs', m3.params[['D1','D2']], 'pvals', m3.pvalues[['D1','D2']])\n"
+   },
+   "is_error": false,
+   "output": "OLS D -0.03496574530309573 0.0046602837250926225 [-0.04409973356201543, -0.025831757044176028] R2 0.40140159109419926\nbootstrap CI [-0.04356121 -0.02651076]\nunadj -0.07722022613934051 [-0.08408494153616132, -0.07035551074251971]\nadj no placebo 0.007750699644786117 [-0.0031559977975958633, 0.0186573970871681]\npre GMV mean/median 32.43268042866285 19.88625998741533\npct of mean pre GMV per day -0.10781022364156571 pct of median -0.17582866423964683\nquadratic D coefs D1    0.188603\nD2   -0.006312\ndtype: float64 pvals D1    5.705649e-44\nD2    1.269740e-44\ndtype: float64\n"
+  }
+ ],
+ "turns": 30,
+ "stop_reason": "stop",
+ "input_tokens": 491961,
+ "output_tokens": 31191,
+ "cache_read_input_tokens": 462592,
+ "cache_creation_input_tokens": 0,
+ "seconds": 427.67627334594727
+}
