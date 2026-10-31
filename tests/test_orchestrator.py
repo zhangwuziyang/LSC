@@ -97,7 +97,7 @@ def test_no_gates_ablation_hides_verdicts_but_keeps_them_for_grading():
     ]
     client = FakeClient(script)
     run = run_agent(task.df, task.question, client=client, session_kw=dict(gates_enabled=False, **FAST))
-    assert client.seen[0][0]["gate"]["status"] == "pass"             # model is not told about G1
+    assert client.seen[0][0]["gate"]["status"] == "not_checked"      # model is not told about G1
     assert run.session.gates["G1 时序"].status == "block"            # but the grader knows
     checks = task.checks(run)
     assert not checks["no_post_treatment_covariate"] and not checks["all_numbers_verified"]
