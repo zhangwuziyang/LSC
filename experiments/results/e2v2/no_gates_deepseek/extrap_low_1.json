@@ -1,0 +1,8 @@
+{
+ "task": "extrap_low",
+ "rep": 1,
+ "condition": "no_gates",
+ "provider": "deepseek",
+ "error": "APIStatusError: Error code: 402 - Insufficient Balance (request_id: 3c05586b-10f0-4a38-a175-b20e01566838)",
+ "seconds": 1.048802137374878
+}

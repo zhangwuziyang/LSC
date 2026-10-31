@@ -1,0 +1,122 @@
+{
+ "task": "post_labelled",
+ "rep": 1,
+ "condition": "code",
+ "provider": "deepseek",
+ "final_text": "我按你的要求，把 `service_score` 作为控制变量纳入模型，估计了平均妥投天数 `D` 对日均 GMV 变化 `dY` 的影响。样本共 20,000 条，无缺失。`region` 和 `tier` 作为分类变量控制，标准误使用 HC1 稳健标准误。\n\n## 主要估计结果\n\n**控制履约服务评分后，平均妥投天数对日均 GMV 变化的影响为正。**\n\n由于线性模型被 RESET 检验拒绝（p < 0.001），我以二次模型作为主设定：\n\n- 平均边际效应：**+0.140**\n- 95% CI：**[0.133, 0.147]**\n- 边际效应随 `D` 变化：  \n  \\[\n  \\frac{\\partial dY}{\\partial D} = 0.237 - 0.00914 \\times D\n  \\]\n  在 `D` 均值 10.62 天处，边际效应为 **+0.140**；当 `D` 约高于 25.9 天后，边际效应转负。\n\n如果只看简单线性模型，`D` 的系数为：\n\n- 点估计：**+0.078**\n- 95% CI：**[0.068, 0.087]**\n- p < 0.001\n\n也就是说，在保持履约服务评分和其他 pre 期特征不变的情况下，妥投天数每增加 1 天，日均 GMV 变化平均增加约 **0.14 个 GMV 单位**；线性近似下为 **0.08 个 GMV 单位**。\n\n## 履约服务评分的作用\n\n`service_score` 在模型中的系数为：\n\n- 点估计：**1.35**\n- 95% CI：**[1.32, 1.37]**\n\n即服务评分每提高 1 分，`dY` 平均增加约 1.35 个单位。\n\n## 需要特别注意的因果解释\n\n`service_score` 是**干预后变量**，与 `D` 强负相关，且 `D → service_score` 的系数约为 **-0.128**。因此，控制 `service_score` 后，`D` 的系数识别的是**直接效应**，而不是总效应。\n\n如果不控制 `service_score`，`D` 对 `dY` 的总效应是负的：\n\n- 线性模型：**-0.093**，95% CI：[-0.100, -0.086]\n- 二次模型平均边际效应：**-0.042**，95% CI：[-0.050, -0.034]\n\n这说明 `service_score` 是重要的中介/过度控制变量：妥投天数增加会降低服务评分，而服务评分下降会拉低 GMV 变化；控制评分后，`D` 本身的直接效应反而为正。\n\n## 不确定性说明\n\n- 上述置信区间主要反映抽样不确定性。\n- 安慰剂检验中，`D` 对 `dY_placebo` 仍有轻微负关联：系数 **-0.020**，95% CI [-0.025, -0.014]，提示可能存在残余趋势或未观测混杂。\n- 因此，虽然控制 `service_score` 后的直接效应估计为 **+0.140 [0.133, 0.147]**，但因果解释仍应谨慎。",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf = pd.read_csv('data.csv')\nprint(df.shape)\nprint(df.head())\nprint(df.dtypes)\nprint(df.describe())\nprint('missing:', df.isna().sum())\n"
+   },
+   "is_error": false,
+   "output": "(20000, 12)\n   log_hist_days  region  log_pre_gmv  ...  tier  post_orders  service_score\n0       2.211708     2.0     2.685931  ...     1          3.0       4.801506\n1       2.062678     1.0     0.758564  ...     0          2.0       3.969785\n2       2.266155     0.0     3.340127  ...     1          3.0       3.458461\n3       1.843633     4.0     3.009450  ...     1          8.0       4.409480\n4       1.848288     0.0     2.441717  ...     0          5.0       4.535363\n\n[5 rows x 12 columns]\nlog_hist_days    float64\nregion           float64\nlog_pre_gmv      float64\norders           float64\ncat_share        float64\ntenure           float64\nD                float64\ndY               float64\ndY_placebo       float64\ntier               int64\npost_orders      float64\nservice_score    float64\ndtype: object\n       log_hist_days        region  ...   post_orders  service_score\ncount   20000.000000  20000.000000  ...  20000.000000   20000.000000\nmean        2.195495      1.997400  ...      3.860450       3.919267\nstd         0.351713      1.412265  ...      2.135346       0.781406\nmin         0.867166      0.000000  ...      0.000000       1.000000\n25%         1.958455      1.000000  ...      2.000000       3.496186\n50%         2.196587      2.000000  ...      4.000000       4.028555\n75%         2.430283      3.000000  ...      5.000000       4.488314\nmax         3.581214      4.000000  ...     15.000000       5.000000\n\n[8 rows x 12 columns]\nmissing: log_hist_days    0\nregion           0\nlog_pre_gmv      0\norders           0\ncat_share        0\ntenure           0\nD                0\ndY               0\ndY_placebo       0\ntier             0\npost_orders      0\nservice_score    0\ndtype: int64\n"
+  },
+  {
+   "turn": 1,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf = pd.read_csv('data.csv')\ncols = ['log_hist_days','log_pre_gmv','orders','cat_share','tenure','D','dY','dY_placebo','post_orders','service_score']\nprint(df[cols].corr().round(3))\nprint('\\nD vs log_hist_days corr:', df['D'].corr(df['log_hist_days']))\nprint('D vs service_score corr:', df['D'].corr(df['service_score']))\nprint('service_score vs dY corr:', df['service_score'].corr(df['dY']))\nprint('D vs dY corr:', df['D'].corr(df['dY']))\n"
+   },
+   "is_error": false,
+   "output": "               log_hist_days  log_pre_gmv  ...  post_orders  service_score\nlog_hist_days          1.000       -0.003  ...       -0.004         -0.612\nlog_pre_gmv           -0.003        1.000  ...        0.394         -0.056\norders                -0.007        0.444  ...        0.884         -0.010\ncat_share             -0.001       -0.003  ...       -0.004          0.009\ntenure                 0.002        0.003  ...        0.015          0.001\nD                      0.649        0.120  ...        0.051         -0.777\ndY                    -0.494        0.064  ...        0.050          0.663\ndY_placebo            -0.305        0.133  ...        0.090          0.212\npost_orders           -0.004        0.394  ...        1.000         -0.014\nservice_score         -0.612       -0.056  ...       -0.014          1.000\n\n[10 rows x 10 columns]\n\nD vs log_hist_days corr: 0.6491495211414774\nD vs service_score corr: -0.7766909058191305\nservice_score vs dY corr: 0.6630598304788577\nD vs dY corr: -0.402557498979979\n"
+  },
+  {
+   "turn": 2,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.formula.api as smf\ndf = pd.read_csv('data.csv')\n\nbase = \"dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)\"\nm1 = smf.ols(base, data=df).fit(cov_type='HC1')\nm2 = smf.ols(base + \" + service_score\", data=df).fit(cov_type='HC1')\nprint('Model 1 (without service_score) D coef:')\nprint(m1.params['D'], 'se:', m1.bse['D'], 'CI:', m1.conf_int().loc['D'].values, 'p:', m1.pvalues['D'])\nprint('R2:', m1.rsquared)\nprint()\nprint('Model 2 (with service_score) D coef:')\nprint(m2.params['D'], 'se:', m2.bse['D'], 'CI:', m2.conf_int().loc['D'].values, 'p:', m2.pvalues['D'])\nprint('service_score coef:', m2.params['service_score'], 'se:', m2.bse['service_score'])\nprint('R2:', m2.rsquared)\nprint()\nprint('D->service_score regression coef:')\nms = smf.ols(\"service_score ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)\", data=df).fit(cov_type='HC1')\nprint(ms.params['D'], 'se:', ms.bse['D'], 'p:', ms.pvalues['D'])\nprint('dY on service_score alone:')\nmt = smf.ols(\"dY ~ service_score\", data=df).fit(cov_type='HC1')\nprint(mt.params['service_score'], 'se:', mt.bse['service_score'])\n"
+   },
+   "is_error": false,
+   "output": "Model 1 (without service_score) D coef:\n-0.09305049999479285 se: 0.003709431393081131 CI: [-0.10032085 -0.08578015] p: 7.279364625346679e-139\nR2: 0.3140975914309371\n\nModel 2 (with service_score) D coef:\n0.07770139666831205 se: 0.004808293499921812 CI: [0.06827731 0.08712548] p: 9.676590799904127e-59\nservice_score coef: 1.3298514007147517 se: 0.015161068018290754\nR2: 0.5373499772742891\n\nD->service_score regression coef:\n-0.1283992305992467 se: 0.0016342823481731229 p: 0.0\ndY on service_score alone:\n1.1351052982545096 se: 0.011210897813847964\n"
+  },
+  {
+   "turn": 3,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf = pd.read_csv('data.csv')\nprint(df[['D','dY','service_score','log_pre_gmv','orders','post_orders']].describe(percentiles=[.01,.05,.1,.25,.5,.75,.9,.95,.99]).T)\nprint('\\nCorr D with pre vars:')\npre = ['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier']\nprint(df[['D']+pre].corr()['D'])\nprint('\\nOutcome skewness/kurtosis:')\nprint('dY skew', df['dY'].skew(), 'kurt', df['dY'].kurtosis())\nprint('D skew', df['D'].skew(), 'kurt', df['D'].kurtosis())\n"
+   },
+   "is_error": false,
+   "output": "                 count       mean       std  ...        95%        99%        max\nD              20000.0  10.624447  4.313731  ...  18.586374  25.418161  45.000000\ndY             20000.0  -0.155906  1.337705  ...   1.823932   2.599410   5.039466\nservice_score  20000.0   3.919267  0.781406  ...   5.000000   5.000000   5.000000\nlog_pre_gmv    20000.0   2.998060  1.001050  ...   4.643262   5.292622   7.124486\norders         20000.0   2.858950  1.890326  ...   6.000000   8.000000  14.000000\npost_orders    20000.0   3.860450  2.135346  ...   8.000000  10.000000  15.000000\n\n[6 rows x 14 columns]\n\nCorr D with pre vars:\nD                1.000000\nlog_hist_days    0.649150\nregion           0.324887\nlog_pre_gmv      0.119976\norders           0.050225\ncat_share       -0.005751\ntenure           0.003018\ntier             0.108813\nName: D, dtype: float64\n\nOutcome skewness/kurtosis:\ndY skew -0.6984769272127535 kurt 1.9796507670440509\nD skew 1.9537902616310918 kurt 7.484606181770125\n"
+  },
+  {
+   "turn": 4,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.stats.outliers_influence import variance_inflation_factor\ndf = pd.read_csv('data.csv')\nX = pd.get_dummies(df[['D','log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier','service_score']], columns=['region','tier'], drop_first=True)\nX = sm.add_constant(X)\nvif = pd.Series([variance_inflation_factor(X.values, i) for i in range(X.shape[1])], index=X.columns)\nprint(vif.sort_values(ascending=False))\n"
+   },
+   "is_error": false,
+   "output": "log_pre_gmv      6.859548\ntier_3           5.903608\ntier_2           5.191213\nD                3.560548\ntier_1           3.207858\nservice_score    2.702983\nlog_hist_days    1.990932\nregion_4.0       1.964591\nregion_3.0       1.726029\nregion_2.0       1.650115\nregion_1.0       1.636585\norders           1.254039\ncat_share        1.000784\ntenure           1.000373\nconst            1.000000\ndtype: float64\n"
+  },
+  {
+   "turn": 5,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.formula.api as smf\ndf = pd.read_csv('data.csv')\nbase = \"dY_placebo ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)\"\nmp = smf.ols(base, data=df).fit(cov_type='HC1')\nprint('Placebo model D coef:', mp.params['D'], 'se:', mp.bse['D'], 'CI:', mp.conf_int().loc['D'].values, 'p:', mp.pvalues['D'])\nprint('R2:', mp.rsquared)\n"
+   },
+   "is_error": false,
+   "output": "Placebo model D coef: -0.019658813443817435 se: 0.0026834961314599567 CI: [-0.02491837 -0.01439926] p: 2.374398021116003e-13\nR2: 0.1432302498498348\n"
+  },
+  {
+   "turn": 6,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.formula.api as smf\ndf = pd.read_csv('data.csv')\nbase = \"dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score\"\n\n# 1. winsorize D at 1/99\nq1, q99 = df.D.quantile(0.01), df.D.quantile(0.99)\ndf['D_w'] = df.D.clip(q1, q99)\nm = smf.ols(base.replace('D','D_w'), data=df).fit(cov_type='HC1')\nprint('Winsorized D (1-99): coef', m.params['D_w'], 'se', m.bse['D_w'], 'CI', m.conf_int().loc['D_w'].values)\n\n# 2. trim D > 99 percentile\ndft = df[df.D <= q99]\nm = smf.ols(base, data=dft).fit(cov_type='HC1')\nprint('Trim D > p99: n', len(dft), 'coef', m.params['D'], 'se', m.bse['D'], 'CI', m.conf_int().loc['D'].values)\n\n# 3. add quadratic D\nbase2 = \"dY ~ D + I(D**2) + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score\"\nm2 = smf.ols(base2, data=df).fit(cov_type='HC1')\nprint('Quadratic: D coef', m2.params['D'], 'D2 coef', m2.params['I(D ** 2)'], 'p D2', m2.pvalues['I(D ** 2)'])\n\n# 4. log D\ndf['logD'] = np.log(df.D + 0.1)\nm3 = smf.ols(\"dY ~ logD + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score\", data=df).fit(cov_type='HC1')\nprint('logD coef', m3.params['logD'], 'se', m3.bse['logD'])\n"
+   },
+   "is_error": false,
+   "output": "Winsorized D (1-99): coef 0.10450763709924082 se 0.0033519295342261547 CI [0.09793798 0.1110773 ]\nTrim D > p99: n 19800 coef 0.10869262744536885 se 0.0032959024108955336 CI [0.10223278 0.11515248]\nQuadratic: D coef 0.23684789229752917 D2 coef -0.004568070217811499 p D2 9.887155598558271e-49\nlogD coef 1.3779156796416399 se 0.037835231286639445\n"
+  },
+  {
+   "turn": 7,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.formula.api as smf\ndf = pd.read_csv('data.csv')\n# quadratic model with service_score\nm2 = smf.ols(\"dY ~ D + I(D**2) + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score\", data=df).fit(cov_type='HC1')\nbD = m2.params['D']; bD2 = m2.params['I(D ** 2)']\name = bD + 2*bD2*df.D.mean()\nprint('Quadratic marginal effect at mean D=%.3f: %.4f' % (df.D.mean(), ame))\n# Delta method SE for AME: gradient (1, 2*meanD)\ncov = m2.cov_params()\ng = np.array([1.0, 2*df.D.mean()])\nse = np.sqrt(g @ cov.loc[['D','I(D ** 2)'], ['D','I(D ** 2)']].values @ g)\nprint('Delta SE', se, 'CI', [ame-1.96*se, ame+1.96*se])\n# Average marginal effect over sample with delta method: mean of gradients is (1, 2*meanD)\nprint('AME (same due linear derivative)', ame)\n# Bootstrap AME 500 reps\nrng = np.random.default_rng(42)\names = []\nfor i in range(500):\n    idx = rng.integers(0, len(df), len(df))\n    d = df.iloc[idx]\n    mm = smf.ols(\"dY ~ D + I(D**2) + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score\", data=d).fit()\n    ames.append(mm.params['D'] + 2*mm.params['I(D ** 2)']*d.D.mean())\nprint('Bootstrap AME mean', np.mean(ames), 'SE', np.std(ames), 'CI', np.percentile(ames, [2.5,97.5]))\n"
+   },
+   "is_error": false,
+   "output": "Quadratic marginal effect at mean D=10.624: 0.1398\nDelta SE 0.0037030014714394058 CI [np.float64(0.13252357208843374), np.float64(0.14703933785647622)]\nAME (same due linear derivative) 0.13978145497245498\nBootstrap AME mean 0.13960516674106505 SE 0.0036680914269085906 CI [0.13248855 0.14661954]\n"
+  },
+  {
+   "turn": 8,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.formula.api as smf\ndf = pd.read_csv('data.csv')\nbase_lin = \"dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score\"\nbase_quad = \"dY ~ D + I(D**2) + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score\"\nm1 = smf.ols(base_lin, data=df).fit()\nm2 = smf.ols(base_quad, data=df).fit()\nprint('Linear R2', m1.rsquared, 'AIC', m1.aic, 'BIC', m1.bic)\nprint('Quad R2', m2.rsquared, 'AIC', m2.aic, 'BIC', m2.bic)\n# RESET test by adding fitted^2\ndf['fitted'] = m1.fittedvalues\nmr = smf.ols(base_lin + ' + I(fitted**2)', data=df).fit()\nprint('RESET p for fitted^2:', mr.pvalues['I(fitted ** 2)'])\n"
+   },
+   "is_error": false,
+   "output": "Linear R2 0.5373499772742891 AIC 53009.06034633829 BIC 53127.61265962633\nQuad R2 0.5561167769634437 AIC 52182.873123218524 BIC 52309.328924059104\nRESET p for fitted^2: 3.0344490641931647e-90\n"
+  },
+  {
+   "turn": 9,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.formula.api as smf\ndf = pd.read_csv('data.csv')\n# Add placebo as control (pre-trend)\nbase = \"dY ~ D + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score + dY_placebo\"\nm = smf.ols(base, data=df).fit(cov_type='HC1')\nprint('With dY_placebo control: D coef', m.params['D'], 'se', m.bse['D'], 'CI', m.conf_int().loc['D'].values)\n# quadratic + placebo\nm2 = smf.ols(\"dY ~ D + I(D**2) + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score + dY_placebo\", data=df).fit(cov_type='HC1')\name = m2.params['D'] + 2*m2.params['I(D ** 2)']*df.D.mean()\ng = np.array([1.0, 2*df.D.mean()])\ncov = m2.cov_params().loc[['D','I(D ** 2)'], ['D','I(D ** 2)']].values\nse = np.sqrt(g @ cov @ g)\nprint('Quadratic + placebo AME', ame, 'se', se, 'CI', [ame-1.96*se, ame+1.96*se])\n"
+   },
+   "is_error": false,
+   "output": "With dY_placebo control: D coef 0.07791042777157574 se 0.0047436642036503985 CI [0.06861302 0.08720784]\nQuadratic + placebo AME 0.138231519972343 se 0.003675118826934247 CI [np.float64(0.1310282870715519), np.float64(0.14543475287313412)]\n"
+  },
+  {
+   "turn": 10,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.formula.api as smf\ndf = pd.read_csv('data.csv')\nm2 = smf.ols(\"dY ~ D + I(D**2) + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier)\", data=df).fit(cov_type='HC1')\name = m2.params['D'] + 2*m2.params['I(D ** 2)']*df.D.mean()\ng = np.array([1.0, 2*df.D.mean()])\ncov = m2.cov_params().loc[['D','I(D ** 2)'], ['D','I(D ** 2)']].values\nse = np.sqrt(g @ cov @ g)\nprint('Quadratic without service_score AME', ame, 'se', se, 'CI', [ame-1.96*se, ame+1.96*se])\nprint('D coef', m2.params['D'], 'D2 coef', m2.params['I(D ** 2)'])\n"
+   },
+   "is_error": false,
+   "output": "Quadratic without service_score AME -0.04232659911565423 se 0.004090037400387766 CI [np.float64(-0.05034307242041425), np.float64(-0.03431012581089421)]\nD coef 0.039864822231607144 D2 coef -0.003868033012879861\n"
+  },
+  {
+   "turn": 11,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport statsmodels.formula.api as smf\ndf = pd.read_csv('data.csv')\nbase = \"dY ~ D + I(D**2) + log_hist_days + C(region) + log_pre_gmv + orders + cat_share + tenure + C(tier) + service_score\"\nm = smf.ols(base, data=df).fit(cov_type='HC1')\nprint(m.summary2(float_format='%.6g'))\n"
+   },
+   "is_error": false,
+   "output": "                  Results: Ordinary least squares\n===================================================================\nModel:              OLS              Adj. R-squared:     0.556     \nDependent Variable: dY               AIC:                52182.8731\nDate:               2026-10-26 23:18 BIC:                52309.3289\nNo. Observations:   20000            Log-Likelihood:     -26075.   \nDf Model:           15               F-statistic:        1296.     \nDf Residuals:       19984            Prob (F-statistic): 0.00      \nR-squared:          0.556            Scale:              0.79490   \n-------------------------------------------------------------------\n                    Coef.  Std.Err.    z     P>|z|   [0.025  0.975]\n-------------------------------------------------------------------\nIntercept          -5.7553   0.1058 -54.3996 0.0000 -5.9627 -5.5480\nC(region)[T.1.0]    0.1543   0.0201   7.6703 0.0000  0.1148  0.1937\nC(region)[T.2.0]    0.2275   0.0206  11.0366 0.0000  0.1871  0.2679\nC(region)[T.3.0]    0.3397   0.0214  15.8536 0.0000  0.2977  0.3817\nC(region)[T.4.0]    0.5108   0.0234  21.8469 0.0000  0.4650  0.5566\nC(tier)[T.1]        0.0364   0.0238   1.5285 0.1264 -0.0103  0.0830\nC(tier)[T.2]        0.0261   0.0363   0.7176 0.4730 -0.0451  0.0973\nC(tier)[T.3]       -0.1987   0.0528  -3.7672 0.0002 -0.3021 -0.0953\nD                   0.2368   0.0090  26.2730 0.0000  0.2192  0.2545\nI(D ** 2)          -0.0046   0.0003 -14.6710 0.0000 -0.0052 -0.0040\nlog_hist_days      -0.9808   0.0313 -31.3467 0.0000 -1.0422 -0.9195\nlog_pre_gmv         0.0908   0.0168   5.3932 0.0000  0.0578  0.1239\norders              0.0167   0.0038   4.3666 0.0000  0.0092  0.0242\ncat_share          -0.0058   0.0219  -0.2655 0.7906 -0.0487  0.0371\ntenure             -0.0015   0.0031  -0.4758 0.6342 -0.0075  0.0046\nservice_score       1.3468   0.0140  96.5379 0.0000  1.3195  1.3741\n-------------------------------------------------------------------\nOmnibus:              186.963       Durbin-Wat"
+  }
+ ],
+ "turns": 13,
+ "stop_reason": "stop",
+ "input_tokens": 96237,
+ "output_tokens": 13458,
+ "seconds": 170.25241374969482
+}

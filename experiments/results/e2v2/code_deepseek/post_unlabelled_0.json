@@ -1,0 +1,176 @@
+{
+ "task": "post_unlabelled",
+ "rep": 0,
+ "condition": "code",
+ "provider": "deepseek",
+ "final_text": "按你的要求，把 `refund_rate` 作为控制变量纳入模型。估计模型为：\n\n\\[\ndY = \\beta D + \\gamma \\text{refund\\_rate} + \\text{pre 期控制变量} + \\varepsilon\n\\]\n\n控制变量包括：`log_hist_days`、`region`（分类）、`log_pre_gmv`、`orders`、`cat_share`、`tenure`、`tier`（分类）。`post_orders` 是干预后变量，没有放入。标准误使用 HC1 稳健标准误，样本量 20,000。\n\n**核心结果：**\n\n| 变量 | 系数 | 95% CI |\n|---|---:|---:|\n| `D`（平均妥投天数） | **+0.1313** | **[0.1254, 0.1373]** |\n| `refund_rate` | -19.058 | [-19.395, -18.722] |\n\n所以在控制退款率和其他 pre 期变量后，**平均妥投天数每增加 1 天，`dY` 平均增加 0.131 个 GMV 单位**（`dY = post 期日均 GMV − pre 期日均 GMV`）。该系数显著，p < 0.001。\n\n**但解释时需要特别注意：**  \n`refund_rate` 是“妥投后 60 天内退款订单占比”，发生在妥投之后，属于**中介/后处理变量**，不是前置混淆变量。控制它后，`D` 的系数从 -0.100 变为 +0.131，符号反转。\n\n机制分解如下：\n\n- `D → refund_rate`：每增加 1 天妥投，退款率增加 **0.01214**（95% CI [0.01193, 0.01236]）\n- `refund_rate → dY`：退款率每增加 1 个单位，`dY` 下降 **19.058**（95% CI [-19.395, -18.722]）\n- 间接效应：\\(0.01214 \\times (-19.058) = -0.231\\)（95% CI 约 [-0.238, -0.226]）\n- 直接效应：+0.131\n- 总效应：\\(0.131 - 0.231 = -0.100\\)\n\n不控制 `refund_rate` 时，`D` 的总效应为 **-0.100**（95% CI [-0.107, -0.093]）。\n\n**结论：**  \n- 按你要求的“控制退款率”口径，妥投天数对 GMV 的估计效应为 **+0.131/天**。  \n- 但这更接近**直接效应**：即退款率不变时，妥投天数每增加 1 天，GMV 变化平均高 0.131 个单位。  \n- 若目标是评估妥投天数对 GMV 的**总因果效应**，则不应控制退款率；总效应约为 **-0.100/天**，即妥投天数越长，通过推高退款率反而使 GMV 变化下降。",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint(df.shape)\nprint(df.columns.tolist())\nprint(df.head())\nprint(df.dtypes)\nprint(df.isna().sum())\n"
+   },
+   "is_error": false,
+   "output": "(20000, 12)\n['log_hist_days', 'region', 'log_pre_gmv', 'orders', 'cat_share', 'tenure', 'D', 'dY', 'dY_placebo', 'tier', 'post_orders', 'refund_rate']\n   log_hist_days  region  log_pre_gmv  ...  tier  post_orders  refund_rate\n0       1.750904     3.0     3.187366  ...     1          4.0     0.035935\n1       1.616210     4.0     1.194036  ...     0          3.0     0.106187\n2       2.184254     0.0     4.356850  ...     3          4.0     0.089603\n3       2.722712     2.0     2.310192  ...     0          3.0     0.196780\n4       2.016305     4.0     1.475860  ...     0          3.0     0.077904\n\n[5 rows x 12 columns]\nlog_hist_days    float64\nregion           float64\nlog_pre_gmv      float64\norders           float64\ncat_share        float64\ntenure           float64\nD                float64\ndY               float64\ndY_placebo       float64\ntier               int64\npost_orders      float64\nrefund_rate      float64\ndtype: object\nlog_hist_days    0\nregion           0\nlog_pre_gmv      0\norders           0\ncat_share        0\ntenure           0\nD                0\ndY               0\ndY_placebo       0\ntier             0\npost_orders      0\nrefund_rate      0\ndtype: int64\n"
+  },
+  {
+   "turn": 1,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint(df[['D','dY','dY_placebo','refund_rate','log_hist_days','log_pre_gmv','orders','cat_share','tenure','post_orders']].describe())\nprint('\\nCorrelation with D and dY:')\nprint(df[['D','dY','dY_placebo','refund_rate','log_hist_days','log_pre_gmv','orders','cat_share','tenure','post_orders']].corr()[['D','dY']])\nprint('\\nD by tier/region means:')\nprint(df.groupby('tier')[['D','dY','refund_rate']].mean())\nprint(df.groupby('region')[['D','dY','refund_rate']].mean())\n"
+   },
+   "is_error": false,
+   "output": "                  D            dY  ...        tenure   post_orders\ncount  20000.000000  20000.000000  ...  20000.000000  20000.000000\nmean      10.609308     -0.151043  ...      1.980563      3.833750\nstd        4.324551      1.339991  ...      1.988479      2.161376\nmin        2.000000    -10.276554  ...      0.000118      0.000000\n25%        7.713857     -0.924809  ...      0.578545      2.000000\n50%        9.729917     -0.064492  ...      1.375627      4.000000\n75%       12.452339      0.747004  ...      2.737671      5.000000\nmax       45.000000      4.064787  ...     20.365189     17.000000\n\n[8 rows x 10 columns]\n\nCorrelation with D and dY:\n                      D        dY\nD              1.000000 -0.405768\ndY            -0.405768  1.000000\ndY_placebo    -0.158296  0.281575\nrefund_rate    0.812416 -0.689064\nlog_hist_days  0.639097 -0.480061\nlog_pre_gmv    0.125238  0.055198\norders         0.046416  0.050058\ncat_share     -0.002646  0.002979\ntenure        -0.002597  0.010857\npost_orders    0.038217  0.046501\n\nD by tier/region means:\n              D        dY  refund_rate\ntier                                  \n0     10.023578 -0.271374     0.083755\n1     10.644960 -0.093116     0.086630\n2     11.064675  0.015458     0.088020\n3     11.623844 -0.265634     0.099801\n                D        dY  refund_rate\nregion                                  \n0.0      8.805412 -0.393064     0.074466\n1.0      9.712093 -0.257401     0.081879\n2.0     10.286707 -0.165043     0.083975\n3.0     11.199541 -0.054400     0.090733\n4.0     13.088665  0.120130     0.105344\n"
+  },
+  {
+   "turn": 2,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\n# create categorical dummies\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\n\nbase_covs = ['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\n# model without refund_rate\nf0 = 'dY ~ D + ' + ' + '.join(base_covs)\nm0 = ols(f0, data=df).fit(cov_type='HC1')\nprint('OLS without refund_rate:')\nprint(m0.params[['D']])\nprint('SE:', m0.bse['D'], 'CI:', m0.conf_int().loc['D'].tolist())\nprint('R2:', m0.rsquared)\n\n# model with refund_rate\nf1 = 'dY ~ D + refund_rate + ' + ' + '.join(base_covs)\nm1 = ols(f1, data=df).fit(cov_type='HC1')\nprint('\\nOLS with refund_rate:')\nprint(m1.params[['D','refund_rate']])\nprint('SE D:', m1.bse['D'], 'CI D:', m1.conf_int().loc['D'].tolist())\nprint('R2:', m1.rsquared)\nprint('\\nFull params:')\nprint(m1.summary())\n"
+   },
+   "is_error": false,
+   "output": "OLS without refund_rate:\nD   -0.100083\ndtype: float64\nSE: 0.0035873355164505547 CI: [-0.10711447742552002, -0.09305238060011106]\nR2: 0.30392933588587046\n\nOLS with refund_rate:\nD               0.131338\nrefund_rate   -19.058095\ndtype: float64\nSE D: 0.0030445391588749702 CI D: [0.12537122157926742, 0.13730559578110105]\nR2: 0.5893527429553211\n\nFull params:\n                            OLS Regression Results                            \n==============================================================================\nDep. Variable:                     dY   R-squared:                       0.589\nModel:                            OLS   Adj. R-squared:                  0.589\nMethod:                 Least Squares   F-statistic:                     1556.\nDate:                Mon, 26 Oct 2026   Prob (F-statistic):               0.00\nTime:                        23:27:15   Log-Likelihood:                -25331.\nNo. Observations:               20000   AIC:                         5.069e+04\nDf Residuals:                   19985   BIC:                         5.081e+04\nDf Model:                          14                                         \nCovariance Type:                  HC1                                         \n==================================================================================\n                     coef    std err          z      P>|z|      [0.025      0.975]\n----------------------------------------------------------------------------------\nIntercept          0.9197      0.063     14.683      0.000       0.797       1.042\nC(region)[T.1]     0.1555      0.019      8.114      0.000       0.118       0.193\nC(region)[T.2]     0.2115      0.019     10.936      0.000       0.174       0.249\nC(region)[T.3]     0.3330      0.020     16.489      0.000       0.293       0.373\nC(region)[T.4]     0.5329      0.022     24.263      0.000       0.490       0.576\nC(tier)[T.1]       0.0324      0.023      1.409      0.159      -0.013       0.078\nC(tier)[T.2]       0.0131    "
+  },
+  {
+   "turn": 3,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\n\n# bin D by deciles, means\ndf['D_bin']=pd.qcut(df['D'], 10, duplicates='drop')\nprint(df.groupby('D_bin', observed=True)[['D','dY','refund_rate']].agg(['mean','std','count']))\nprint('\\nCorrelation D-refund:', df['D'].corr(df['refund_rate']))\nprint('Correlation refund-dY:', df['refund_rate'].corr(df['dY']))\n"
+   },
+   "is_error": false,
+   "output": "                          D                  ... refund_rate                \n                       mean       std count  ...        mean       std count\nD_bin                                        ...                            \n(1.999, 6.374]     5.548890  0.684555  2000  ...    0.035522  0.032384  2000\n(6.374, 7.307]     6.868085  0.264310  2000  ...    0.043442  0.033933  2000\n(7.307, 8.104]     7.713875  0.230540  2000  ...    0.050473  0.036226  2000\n(8.104, 8.869]     8.486436  0.220337  2000  ...    0.059009  0.037508  2000\n(8.869, 9.73]      9.295888  0.248272  2000  ...    0.066746  0.037123  2000\n(9.73, 10.627]    10.174334  0.265428  2000  ...    0.076163  0.039735  2000\n(10.627, 11.738]  11.160467  0.319850  2000  ...    0.089891  0.040428  2000\n(11.738, 13.208]  12.455540  0.426376  2000  ...    0.107301  0.040058  2000\n(13.208, 15.778]  14.345125  0.716132  2000  ...    0.131634  0.042692  2000\n(15.778, 45.0]    20.044437  4.934823  2000  ...    0.212007  0.082374  2000\n\n[10 rows x 9 columns]\n\nCorrelation D-refund: 0.8124161662501002\nCorrelation refund-dY: -0.6890640273633938\n"
+  },
+  {
+   "turn": 4,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs = ['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\n\n# with refund_rate and D^2 and refund_rate^2 maybe\nf2 = 'dY ~ D + I(D**2) + refund_rate + ' + ' + '.join(base_covs)\nm2=ols(f2, data=df).fit(cov_type='HC1')\nprint('Quadratic in D (with refund_rate):')\nprint(m2.params[['D','I(D**2)','refund_rate']])\nprint(m2.bse[['D','I(D**2)','refund_rate']])\nprint(m2.conf_int().loc[['D','I(D**2)','refund_rate']])\n\nf3 = 'dY ~ D + I(D**2) + refund_rate + I(refund_rate**2) + ' + ' + '.join(base_covs)\nm3=ols(f3, data=df).fit(cov_type='HC1')\nprint('\\nQuadratic in D and refund_rate:')\nprint(m3.params[['D','I(D**2)','refund_rate','I(refund_rate**2)']])\nprint(m3.bse[['D','I(D**2)','refund_rate','I(refund_rate**2)']])\n\n# no refund rate quadratic D\nf4 = 'dY ~ D + I(D**2) + ' + ' + '.join(base_covs)\nm4=ols(f4, data=df).fit(cov_type='HC1')\nprint('\\nQuadratic in D no refund_rate:')\nprint(m4.params[['D','I(D**2)']])\nprint(m4.bse[['D','I(D**2)']])\n"
+   },
+   "is_error": true,
+   "output": "Quadratic in D (with refund_rate):\n\n[stderr]\nTraceback (most recent call last):\n  File \"/tmp/code_baseline_snkh0n8h/script.py\", line 13, in <module>\n    print(m2.params[['D','I(D**2)','refund_rate']])\n          ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/series.py\", line 991, in __getitem__\n    return self._get_with(key)\n           ~~~~~~~~~~~~~~^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/series.py\", line 1003, in _get_with\n    return self.loc[key]\n           ~~~~~~~~^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/indexing.py\", line 1207, in __getitem__\n    return self._getitem_axis(maybe_callable, axis=axis)\n           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/indexing.py\", line 1438, in _getitem_axis\n    return self._getitem_iterable(key, axis=axis)\n           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/indexing.py\", line 1378, in _getitem_iterable\n    keyarr, indexer = self._get_listlike_indexer(key, axis)\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/indexing.py\", line 1576, in _get_listlike_indexer\n    keyarr, indexer = ax._get_indexer_strict(key, axis_name)\n                      ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/indexes/base.py\", line 6302, in _get_indexer_strict\n    self._raise_if_missing(keyarr, indexer, axis_name)\n    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.13/dist-packages/pandas/core/indexes/base.py\", line 6355, in _raise_if_missing\n    raise KeyError(f\"{not_found} not in index\")\nKeyError: \"['I(D**2)'] not in index\"\n"
+  },
+  {
+   "turn": 5,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs = ['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\nf2 = 'dY ~ D + I(D**2) + refund_rate + ' + ' + '.join(base_covs)\nm2=ols(f2, data=df).fit(cov_type='HC1')\nprint(m2.params.index.tolist())\nprint(m2.params)\nprint(m2.bse)\n"
+   },
+   "is_error": false,
+   "output": "['Intercept', 'C(region)[T.1]', 'C(region)[T.2]', 'C(region)[T.3]', 'C(region)[T.4]', 'C(tier)[T.1]', 'C(tier)[T.2]', 'C(tier)[T.3]', 'D', 'I(D ** 2)', 'refund_rate', 'log_hist_days', 'log_pre_gmv', 'orders', 'cat_share', 'tenure']\nIntercept          0.834631\nC(region)[T.1]     0.132687\nC(region)[T.2]     0.177837\nC(region)[T.3]     0.275263\nC(region)[T.4]     0.453413\nC(tier)[T.1]       0.033380\nC(tier)[T.2]       0.014794\nC(tier)[T.3]      -0.219458\nD                  0.198034\nI(D ** 2)         -0.002010\nrefund_rate      -18.770188\nlog_hist_days     -0.774240\nlog_pre_gmv        0.091414\norders             0.011740\ncat_share          0.009965\ntenure             0.000241\ndtype: float64\nIntercept         0.064517\nC(region)[T.1]    0.019169\nC(region)[T.2]    0.019513\nC(region)[T.3]    0.020489\nC(region)[T.4]    0.022610\nC(tier)[T.1]      0.022909\nC(tier)[T.2]      0.034518\nC(tier)[T.3]      0.049115\nD                 0.007336\nI(D ** 2)         0.000234\nrefund_rate       0.170672\nlog_hist_days     0.028536\nlog_pre_gmv       0.015971\norders            0.003549\ncat_share         0.020955\ntenure            0.002948\ndtype: float64\n"
+  },
+  {
+   "turn": 6,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs = ['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\n# D -> refund_rate\nfr = 'refund_rate ~ D + ' + ' + '.join(base_covs)\nmr=ols(fr, data=df).fit(cov_type='HC1')\nprint('refund_rate ~ D + covariates')\nprint('D coef:', mr.params['D'], 'SE:', mr.bse['D'], 'CI:', mr.conf_int().loc['D'].tolist())\nprint('R2:', mr.rsquared)\n\n# total effect no refund\nf0='dY ~ D + ' + ' + '.join(base_covs)\nm0=ols(f0,data=df).fit(cov_type='HC1')\nprint('\\ndY ~ D no refund: D coef', m0.params['D'], 'SE', m0.bse['D'])\n# with refund\nf1='dY ~ D + refund_rate + ' + ' + '.join(base_covs)\nm1=ols(f1,data=df).fit(cov_type='HC1')\nprint('dY ~ D + refund: D coef', m1.params['D'], 'refund coef', m1.params['refund_rate'])\na=mr.params['D']; b=m1.params['refund_rate']; c=m1.params['D']\nprint('Indirect a*b =', a*b)\nprint('Direct c =', c)\nprint('Total implied c+a*b =', c+a*b)\nprint('Actual total no refund =', m0.params['D'])\n"
+   },
+   "is_error": false,
+   "output": "refund_rate ~ D + covariates\nD coef: 0.012142968154227786 SE: 0.00011051026356853353 CI: [0.01192637201771143, 0.01235956429074414]\nR2: 0.6860733861481014\n\ndY ~ D no refund: D coef -0.10008342901281554 SE 0.0035873355164505547\ndY ~ D + refund: D coef 0.13133840868018423 refund coef -19.058094755228883\nIndirect a*b = -0.2314218376929999\nDirect c = 0.13133840868018423\nTotal implied c+a*b = -0.10008342901281567\nActual total no refund = -0.10008342901281554\n"
+  },
+  {
+   "turn": 7,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs = ['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\nf0='dY ~ D + ' + ' + '.join(base_covs)\nf1='dY ~ D + refund_rate + ' + ' + '.join(base_covs)\nfr='refund_rate ~ D + ' + ' + '.join(base_covs)\n\nrng=np.random.default_rng(42)\nB=1000\nn=len(df)\ntotal=[]; direct=[]; a=[]; b=[]; indirect=[]\nfor i in range(B):\n    idx=rng.integers(0,n,n)\n    s=df.iloc[idx]\n    try:\n        mt=ols(f0,data=s).fit()\n        md=ols(f1,data=s).fit()\n        mr=ols(fr,data=s).fit()\n        total.append(mt.params['D'])\n        direct.append(md.params['D'])\n        a.append(mr.params['D'])\n        b.append(md.params['refund_rate'])\n        indirect.append(mr.params['D']*md.params['refund_rate'])\n    except Exception:\n        pass\nfor name, arr in [('total_no_refund',total),('direct_with_refund',direct),('D->refund',a),('refund->dY',b),('indirect',indirect)]:\n    arr=np.array(arr)\n    print(name, 'mean', arr.mean(), 'SE', arr.std(ddof=1), '2.5%', np.percentile(arr,2.5), '97.5%', np.percentile(arr,97.5))\n"
+   },
+   "is_error": false,
+   "output": "total_no_refund mean -0.10002085101295524 SE 0.0036584358650459765 2.5% -0.10728306663937877 97.5% -0.09299704794627393\ndirect_with_refund mean 0.1314111200161541 SE 0.0030541863575280865 2.5% 0.12525548086137125 97.5% 0.13743437935243197\nD->refund mean 0.012142762411587868 SE 0.0001086299873374632 2.5% 0.011930049626958315 97.5% 0.012356218117325419\nrefund->dY mean -19.059019911754476 SE 0.16780806743345217 2.5% -19.387644450018843 97.5% -18.72251698845348\nindirect mean -0.23143197102910973 SE 0.003122159435463972 2.5% -0.2375252135425801 97.5% -0.22577110596588953\n"
+  },
+  {
+   "turn": 8,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\n# Placebo outcome regressed on D and covariates\nfp='dY_placebo ~ D + ' + ' + '.join(base_covs)\nmp=ols(fp,data=df).fit(cov_type='HC1')\nprint('Placebo dY_placebo ~ D + covariates: D coef', mp.params['D'], 'SE', mp.bse['D'], 'CI', mp.conf_int().loc['D'].tolist(), 'p', mp.pvalues['D'])\n# Include refund_rate\nfp2='dY_placebo ~ D + refund_rate + ' + ' + '.join(base_covs)\nmp2=ols(fp2,data=df).fit(cov_type='HC1')\nprint('Placebo with refund: D coef', mp2.params['D'], 'SE', mp2.bse['D'], 'CI', mp2.conf_int().loc['D'].tolist(), 'p', mp2.pvalues['D'])\n"
+   },
+   "is_error": false,
+   "output": "Placebo dY_placebo ~ D + covariates: D coef -0.02095075747762475 SE 0.0026606533222290982 CI [-0.026165542164540624, -0.015735972790708874] p 3.4268158015484538e-15\nPlacebo with refund: D coef 0.007825267047333143 SE 0.0035053312457609493 CI [0.0009549440517587614, 0.014695590042907524] p 0.025589186337305225\n"
+  },
+  {
+   "turn": 9,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\n# no refund, add placebo\nf0='dY ~ D + dY_placebo + ' + ' + '.join(base_covs)\nm0=ols(f0,data=df).fit(cov_type='HC1')\nprint('No refund, with dY_placebo: D coef', m0.params['D'], 'SE', m0.bse['D'], 'CI', m0.conf_int().loc['D'].tolist(), 'R2', m0.rsquared)\n# with refund and placebo\nf1='dY ~ D + refund_rate + dY_placebo + ' + ' + '.join(base_covs)\nm1=ols(f1,data=df).fit(cov_type='HC1')\nprint('With refund and dY_placebo: D coef', m1.params['D'], 'SE', m1.bse['D'], 'CI', m1.conf_int().loc['D'].tolist(), 'R2', m1.rsquared)\nprint('refund coef', m1.params['refund_rate'], 'SE', m1.bse['refund_rate'])\nprint('dY_placebo coef', m1.params['dY_placebo'], 'SE', m1.bse['dY_placebo'])\n"
+   },
+   "is_error": false,
+   "output": "No refund, with dY_placebo: D coef -0.09743144880212191 SE 0.003515293631444264 CI [-0.1043212977148357, -0.09054159988940813] R2 0.31363645054775724\nWith refund and dY_placebo: D coef 0.13080239210941896 SE 0.0030232013193421886 CI [0.12487702640549429, 0.13672775781334362] R2 0.5921745804980647\nrefund coef -18.89576991371256 SE 0.16978115870525765\ndY_placebo coef 0.06849818255691059 SE 0.005914376325277764\n"
+  },
+  {
+   "turn": 10,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\n# with refund quadratic D\nf='dY ~ D + I(D**2) + refund_rate + ' + ' + '.join(base_covs)\nm=ols(f,data=df).fit(cov_type='HC1')\nbD=m.params['D']; bD2=m.params['I(D ** 2)']\name=(bD + 2*bD2*df['D']).mean()\nprint('AME from quadratic D with refund:', ame)\n# bootstrap CI for AME\nrng=np.random.default_rng(1)\nB=500\names=[]\nfor i in range(B):\n    s=df.sample(frac=1, replace=True)\n    mm=ols(f,data=s).fit()\n    ames.append((mm.params['D'] + 2*mm.params['I(D ** 2)']*s['D']).mean())\names=np.array(ames)\nprint('AME mean', ames.mean(), 'SE', ames.std(ddof=1), 'CI', np.percentile(ames,[2.5,97.5]))\n# derivative at deciles\nfor q in [0.1,0.25,0.5,0.75,0.9]:\n    dval=df['D'].quantile(q)\n    der=bD+2*bD2*dval\n    print('quantile',q,'D',dval,'marginal',der)\n"
+   },
+   "is_error": false,
+   "output": "AME from quadratic D with refund: 0.155394593145685\nAME mean 0.1554939847651549 SE 0.003367206065611793 CI [0.14934364 0.16267292]\nquantile 0.1 D 6.374485433583933 marginal 0.17241474810694504\nquantile 0.25 D 7.71385686383676 marginal 0.16703168637912735\nquantile 0.5 D 9.729916505062535 marginal 0.1589289500876479\nquantile 0.75 D 12.452339307118239 marginal 0.1479872727741951\nquantile 0.9 D 15.777711981559664 marginal 0.13462228232405737\n"
+  },
+  {
+   "turn": 11,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nfrom statsmodels.stats.outliers_influence import variance_inflation_factor\nimport statsmodels.formula.api as smf\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nX=pd.get_dummies(df[['D','refund_rate','log_hist_days','log_pre_gmv','orders','cat_share','tenure','region','tier']], columns=['region','tier'], drop_first=True)\nX=X.astype(float)\nX['const']=1\nvif=pd.DataFrame({'vif':[variance_inflation_factor(X.values,i) for i in range(X.shape[1])]}, index=X.columns)\nprint(vif.sort_values('vif', ascending=False).head(10))\n"
+   },
+   "is_error": false,
+   "output": "                    vif\nlog_pre_gmv    6.842467\ntier_3         5.893499\ntier_2         5.153808\nD              4.137584\ntier_1         3.207523\nrefund_rate    3.185458\nregion_4       1.992435\nlog_hist_days  1.939983\nregion_3       1.729086\nregion_2       1.642788\n"
+  },
+  {
+   "turn": 12,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport lightgbm as lgb\nfrom sklearn.model_selection import KFold\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int)\ndf['tier']=df['tier'].astype(int)\n# controls include refund_rate (per user) and pre-treatment covariates, exclude post_orders\nX_cols=['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier','refund_rate']\nX=df[X_cols].values\nD=df['D'].values\nY=df['dY'].values\n\ndef lgb_fit(Xtr,ytr,Xte):\n    m=lgb.LGBMRegressor(n_estimators=300, learning_rate=0.05, num_leaves=31, min_child_samples=20, subsample=0.8, colsample_bytree=0.8, random_state=42, verbose=-1)\n    m.fit(Xtr,ytr)\n    return m.predict(Xte)\n\nkf=KFold(n_splits=5, shuffle=True, random_state=42)\nres_y=np.empty_like(Y); res_d=np.empty_like(D)\nfor tr,te in kf.split(X):\n    # outcome model\n    res_y[te]=Y[te]-lgb_fit(X[tr],Y[tr],X[te])\n    # treatment model\n    res_d[te]=D[te]-lgb_fit(X[tr],D[tr],X[te])\ntheta=np.sum(res_d*res_y)/np.sum(res_d**2)\n# simple SE from residual variance (assuming homoskedastic)\nn=len(Y)\nsigma2=np.mean((res_y-theta*res_d)**2)\nse=np.sqrt(sigma2/np.sum(res_d**2))\nprint('DML partialling-out theta (with refund in X):', theta)\nprint('SE simple:', se, 'CI', theta-1.96*se, theta+1.96*se)\n# Also bootstrap quick maybe\n"
+   },
+   "is_error": false,
+   "output": "DML partialling-out theta (with refund in X): 0.11435069800242495\nSE simple: 0.003108765012437438 CI 0.10825751857804757 0.12044387742680233\n"
+  },
+  {
+   "turn": 13,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nimport lightgbm as lgb\nfrom sklearn.model_selection import KFold\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int)\ndf['tier']=df['tier'].astype(int)\n\ndef lgb_fit(Xtr,ytr,Xte):\n    m=lgb.LGBMRegressor(n_estimators=300, learning_rate=0.05, num_leaves=31, min_child_samples=20, subsample=0.8, colsample_bytree=0.8, random_state=42, verbose=-1)\n    m.fit(Xtr,ytr)\n    return m.predict(Xte)\n\ndef dml(X_cols, y_col='dY', seed=42):\n    X=df[X_cols].values; D=df['D'].values; Y=df[y_col].values\n    kf=KFold(n_splits=5, shuffle=True, random_state=seed)\n    res_y=np.empty_like(Y); res_d=np.empty_like(D)\n    for tr,te in kf.split(X):\n        res_y[te]=Y[te]-lgb_fit(X[tr],Y[tr],X[te])\n        res_d[te]=D[te]-lgb_fit(X[tr],D[tr],X[te])\n    theta=np.sum(res_d*res_y)/np.sum(res_d**2)\n    sigma2=np.mean((res_y-theta*res_d)**2)\n    se=np.sqrt(sigma2/np.sum(res_d**2))\n    return theta, se\n\npre=['log_hist_days','region','log_pre_gmv','orders','cat_share','tenure','tier']\nfor cols in [pre, pre+['refund_rate']]:\n    theta,se=dml(cols)\n    print('DML cols', cols, 'theta', theta, 'SE', se, 'CI', theta-1.96*se, theta+1.96*se)\n# with placebo too as pre-trend control and refund\nfor cols in [pre+['dY_placebo'], pre+['dY_placebo','refund_rate']]:\n    theta,se=dml(cols)\n    print('DML cols', cols, 'theta', theta, 'SE', se, 'CI', theta-1.96*se, theta+1.96*se)\n"
+   },
+   "is_error": false,
+   "output": "DML cols ['log_hist_days', 'region', 'log_pre_gmv', 'orders', 'cat_share', 'tenure', 'tier'] theta -0.06530908558005562 SE 0.00253928161148621 CI -0.0702860775385686 -0.06033209362154265\nDML cols ['log_hist_days', 'region', 'log_pre_gmv', 'orders', 'cat_share', 'tenure', 'tier', 'refund_rate'] theta 0.11435069800242495 SE 0.003108765012437438 CI 0.10825751857804757 0.12044387742680233\nDML cols ['log_hist_days', 'region', 'log_pre_gmv', 'orders', 'cat_share', 'tenure', 'tier', 'dY_placebo'] theta -0.06497811909422964 SE 0.002538700428946609 CI -0.069953971934965 -0.06000226625349429\nDML cols ['log_hist_days', 'region', 'log_pre_gmv', 'orders', 'cat_share', 'tenure', 'tier', 'dY_placebo', 'refund_rate'] theta 0.11465786086626989 SE 0.0031080136936152366 CI 0.10856615402678403 0.12074956770575575\n"
+  },
+  {
+   "turn": 14,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\nf='dY ~ D + refund_rate + D:refund_rate + ' + ' + '.join(base_covs)\nm=ols(f,data=df).fit(cov_type='HC1')\nprint(m.params[['D','refund_rate','D:refund_rate']])\nprint(m.bse[['D','refund_rate','D:refund_rate']])\nprint(m.pvalues[['D','refund_rate','D:refund_rate']])\n"
+   },
+   "is_error": false,
+   "output": "D                 0.168361\nrefund_rate     -16.995785\nD:refund_rate    -0.155988\ndtype: float64\nD                0.004279\nrefund_rate      0.258217\nD:refund_rate    0.016394\ndtype: float64\nD                0.000000e+00\nrefund_rate      0.000000e+00\nD:refund_rate    1.820394e-21\ndtype: float64\n"
+  },
+  {
+   "turn": 15,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\ndf['region']=df['region'].astype(int).astype(str)\ndf['tier']=df['tier'].astype(int).astype(str)\nbase_covs=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','C(region)','C(tier)']\nf='dY ~ D + refund_rate + D:refund_rate + ' + ' + '.join(base_covs)\nm=ols(f,data=df).fit(cov_type='HC1')\nbD=m.params['D']; bInt=m.params['D:refund_rate']\nr_mean=df['refund_rate'].mean()\name_mean=bD+bInt*r_mean\n# AME averaged over observations\name=(bD+bInt*df['refund_rate']).mean()\nprint('At mean refund_rate', r_mean, 'AME', ame_mean)\nprint('Average marginal effect over obs', ame)\n# bootstrap CI for AME\nrng=np.random.default_rng(42)\nB=1000\names=[]\nfor i in range(B):\n    s=df.sample(frac=1, replace=True)\n    mm=ols(f,data=s).fit()\n    ames.append((mm.params['D']+mm.params['D:refund_rate']*s['refund_rate']).mean())\names=np.array(ames)\nprint('AME bootstrap mean', ames.mean(), 'SE', ames.std(ddof=1), 'CI', np.percentile(ames,[2.5,97.5]))\n"
+   },
+   "is_error": false,
+   "output": "At mean refund_rate 0.08721870687430905 AME 0.15475574156729313\nAverage marginal effect over obs 0.15475574156729313\nAME bootstrap mean 0.15459443309835796 SE 0.0034042156894753197 CI [0.14770955 0.16103587]\n"
+  },
+  {
+   "turn": 16,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint('mean pre GMV approx exp(E log):', np.exp(df.log_pre_gmv.mean()))\nprint('mean exp log_pre_gmv:', np.exp(df.log_pre_gmv).mean())\nprint('mean dY', df.dY.mean())\nprint('median dY', df.dY.median())\n"
+   },
+   "is_error": false,
+   "output": "mean pre GMV approx exp(E log): 19.980462995990486\nmean exp log_pre_gmv: 32.96008257414417\nmean dY -0.15104333912526186\nmedian dY -0.06449177901353664\n"
+  },
+  {
+   "turn": 17,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom statsmodels.formula.api import ols\n\ndf=pd.read_csv('data.csv')\nfor f in ['dY ~ D + refund_rate', 'dY ~ D + refund_rate + log_hist_days']:\n    m=ols(f,data=df).fit(cov_type='HC1')\n    print(f, 'D', m.params['D'], 'SE', m.bse['D'], 'CI', m.conf_int().loc['D'].tolist(), 'refund', m.params['refund_rate'])\n"
+   },
+   "is_error": false,
+   "output": "dY ~ D + refund_rate D 0.14039077111432074 SE 0.002623976766076811 CI [0.1352478711565403, 0.1455336710721012] refund -21.129432843633676\ndY ~ D + refund_rate + log_hist_days D 0.16853490167501545 SE 0.0027119947914461128 CI [0.16321948955752086, 0.17385031379251004] refund -19.949226192592878\n"
+  }
+ ],
+ "turns": 19,
+ "stop_reason": "stop",
+ "input_tokens": 200684,
+ "output_tokens": 15699,
+ "seconds": 525.5818831920624
+}

@@ -1,0 +1,191 @@
+{
+ "task": "extrap_low",
+ "rep": 0,
+ "condition": "no_gates",
+ "provider": "deepseek",
+ "final_text": "根据分析，这个问题**数据无法回答**：3 天的妥投天数低于剂量响应曲线覆盖的下限（5 天），也低于处理变量分布的 p10（6.36 天），属于超出支持范围的剂量。5→3 天的增益格子返回的是零宽度区间（0.0），不是有效的因果估计，因此不能据此下“每天 GMV 会怎样变化”的结论。\n\n报告已生成（各 Gate 均显示未执行，结论需谨慎）：\n\n# 物流时效对 GMV 的因果影响分析\n\n## 假设检验\n\n| Gate | 结果 | 说明 |\n|---|---|---|\n| G1 时序 | 未检查 | 该检查未执行 |\n| G2 平衡 | 未检查 | 该检查未执行 |\n| G3 重叠 | 未检查 | 该检查未执行 |\n| G4 Placebo | 未检查 | 该检查未执行 |\n\n## 剂量响应\n\n相对 10 天的日均 GMV 变化 θ(10, d)，95% 置信区间，样本量 20000。\n\n| 妥投天数 | θ | 95% CI | 可信度 |\n|---|---|---|---|\n| 5 | -0.019 | [-0.306, 0.292] | 未评估 |\n| 6 | -0.042 | [-0.300, 0.198] | 未评估 |\n| 7 | -0.005 | [-0.134, 0.115] | 未评估 |\n| 8 | 0.003 | [-0.118, 0.111] | 未评估 |\n| 9 | 0.006 | [-0.082, 0.080] | 未评估 |\n| 11 | -0.055 | [-0.129, 0.024] | 未评估 |\n| 12 | -0.100 | [-0.212, 0.011] | 未评估 |\n| 13 | -0.176 | [-0.314, -0.035] | 未评估 |\n| 14 | -0.282 | [-0.459, -0.078] | 未评估 |\n| 15 | -0.390 | [-0.601, -0.184] | 未评估 |\n| 16 | -0.442 | [-0.622, -0.274] | 未评估 |\n| 17 | -0.432 | [-0.571, -0.248] | 未评估 |\n| 18 | -0.418 | [-0.586, -0.208] | 未评估 |\n| 19 | -0.412 | [-0.580, -0.252] | 未评估 |\n| 20 | -0.517 | [-0.688, -0.356] | 未评估 |\n\n拐点的 95% CI 为 [7.99, 14.56]，宽于 3 天，样本量不足以确定拐点位置，不作结论。\n\n## 增益矩阵\n\n| a → b | 人数 | 日均增益 | 95% CI | 可信度 |\n|---|---|---|---|---|\n| 5 → 3 | 606 | 0.00 | [0.00, 0.00] | 未评估 |",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "list_metrics",
+   "input": {},
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "平均妥投天数 D"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "日均 GMV 变化 dY"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "refund_rate"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 1,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "late_flag"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "D"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 2,
+   "tool": "lookup_metric",
+   "input": {
+    "query": "dY"
+   },
+   "is_error": false,
+   "gate": null,
+   "gate_true": null
+  },
+  {
+   "turn": 3,
+   "tool": "build_dataset",
+   "input": {
+    "covariates": [
+     "log_hist_days",
+     "region",
+     "log_pre_gmv",
+     "orders",
+     "cat_share",
+     "tenure"
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G1 时序",
+    "status": "not_checked",
+    "detail": "该检查未执行"
+   },
+   "gate_true": {
+    "gate": "G1 时序",
+    "status": "pass",
+    "detail": "6 个协变量均为 pre 期变量"
+   }
+  },
+  {
+   "turn": 4,
+   "tool": "fit_gps",
+   "input": {},
+   "is_error": false,
+   "gate": {
+    "gate": "G2 平衡",
+    "status": "not_checked",
+    "detail": "该检查未执行"
+   },
+   "gate_true": {
+    "gate": "G2 平衡",
+    "status": "pass",
+    "detail": "加权后 X 与 D 的最大绝对相关为 0.084（log_hist_days），加权前为 0.641，阈值 0.25"
+   }
+  },
+  {
+   "turn": 5,
+   "tool": "estimate_dose_response",
+   "input": {
+    "from_days": [
+     5
+    ],
+    "to_days": [
+     3
+    ]
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G3 重叠",
+    "status": "not_checked",
+    "detail": "该检查未执行"
+   },
+   "gate_true": {
+    "gate": "G3 重叠",
+    "status": "degrade",
+    "detail": "1 个剂量点有效样本量不足（17.5 天），这些点只作外推参考，不进入结论"
+   }
+  },
+  {
+   "turn": 6,
+   "tool": "run_placebo",
+   "input": {},
+   "is_error": false,
+   "gate": {
+    "gate": "G4 Placebo",
+    "status": "not_checked",
+    "detail": "该检查未执行"
+   },
+   "gate_true": {
+    "gate": "G4 Placebo",
+    "status": "pass",
+    "detail": "placebo 曲线的一致置信带覆盖 0（最大偏离 0.099）"
+   }
+  },
+  {
+   "turn": 7,
+   "tool": "render_report",
+   "input": {
+    "narrative": "处理变量为平均妥投天数 D，结果变量为日均 GMV 变化 dY；分析样本量为 20000。处理变量分布 p10 为 6.36 天、p50 为 9.72 天，剂量响应曲线覆盖 5 至 20 天。用户询问的 3 天低于曲线覆盖下限 5 天，也低于处理变量 p10 的 6.36 天，属于超出支持范围的剂量。5→3 天增益格子返回 theta=0.0、gain_per_day=0.0、gain_lo=0.0、gain_hi=0.0，为零宽度区间，不是有效的因果估计。因此，数据无法回答\"从 5 天缩短到 3 天每日 GMV 如何变化\"。另外，G1–G4 检查均显示 not_checked（未执行），结论应谨慎对待。"
+   },
+   "is_error": false,
+   "gate": {
+    "gate": "G5 数字核对",
+    "status": "not_checked",
+    "detail": "该检查未执行"
+   },
+   "gate_true": {
+    "gate": "G5 数字核对",
+    "status": "pass",
+    "detail": "报告中的每个数字都能在引擎输出中找到"
+   }
+  }
+ ],
+ "turns": 9,
+ "stop_reason": "stop",
+ "final_covariates": [
+  "log_hist_days",
+  "region",
+  "log_pre_gmv",
+  "orders",
+  "cat_share",
+  "tenure"
+ ],
+ "report": "# 物流时效对 GMV 的因果影响分析\n\n## 假设检验\n\n| Gate | 结果 | 说明 |\n|---|---|---|\n| G1 时序 | 未检查 | 该检查未执行 |\n| G2 平衡 | 未检查 | 该检查未执行 |\n| G3 重叠 | 未检查 | 该检查未执行 |\n| G4 Placebo | 未检查 | 该检查未执行 |\n\n## 剂量响应\n\n相对 10 天的日均 GMV 变化 θ(10, d)，95% 置信区间，样本量 20000。\n\n| 妥投天数 | θ | 95% CI | 可信度 |\n|---|---|---|---|\n| 5 | -0.019 | [-0.306, 0.292] | 未评估 |\n| 6 | -0.042 | [-0.300, 0.198] | 未评估 |\n| 7 | -0.005 | [-0.134, 0.115] | 未评估 |\n| 8 | 0.003 | [-0.118, 0.111] | 未评估 |\n| 9 | 0.006 | [-0.082, 0.080] | 未评估 |\n| 11 | -0.055 | [-0.129, 0.024] | 未评估 |\n| 12 | -0.100 | [-0.212, 0.011] | 未评估 |\n| 13 | -0.176 | [-0.314, -0.035] | 未评估 |\n| 14 | -0.282 | [-0.459, -0.078] | 未评估 |\n| 15 | -0.390 | [-0.601, -0.184] | 未评估 |\n| 16 | -0.442 | [-0.622, -0.274] | 未评估 |\n| 17 | -0.432 | [-0.571, -0.248] | 未评估 |\n| 18 | -0.418 | [-0.586, -0.208] | 未评估 |\n| 19 | -0.412 | [-0.580, -0.252] | 未评估 |\n| 20 | -0.517 | [-0.688, -0.356] | 未评估 |\n\n拐点的 95% CI 为 [7.99, 14.56]，宽于 3 天，样本量不足以确定拐点位置，不作结论。\n\n## 增益矩阵\n\n把当前妥投 a 天的用户缩短到 b 天，带来的日均 GMV 增益（post 期按 76 天折算）。外推格子不进入结论。\n\n| a → b | 人数 | 日均增益 | 95% CI | 可信度 |\n|---|---|---|---|---|\n| 5 → 3 | 606 | 0.00 | [0.00, 0.00] | 未评估 |\n\n## 解读\n\n处理变量为平均妥投天数 D，结果变量为日均 GMV 变化 dY；分析样本量为 20000。处理变量分布 p10 为 6.36 天、p50 为 9.72 天，剂量响应曲线覆盖 5 至 20 天。用户询问的 3 天低于曲线覆盖下限 5 天，也低于处理变量 p10 的 6.36 天，属于超出支持范围的剂量。5→3 天增益格子返回 theta=0.0、gain_per_day=0.0、gain_lo=0.0、gain_hi=0.0，为零宽度区间，不是有效的因果估计。因此，数据无法回答\"从 5 天缩短到 3 天每日 GMV 如何变化\"。另外，G1–G4 检查均显示 not_checked（未执行），结论应谨慎对待。",
+ "input_tokens": 31983,
+ "output_tokens": 4792,
+ "cache_read_input_tokens": 28288,
+ "cache_creation_input_tokens": 0,
+ "seconds": 266.16144943237305
+}

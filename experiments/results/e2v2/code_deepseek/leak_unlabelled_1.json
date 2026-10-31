@@ -1,0 +1,250 @@
+{
+ "task": "leak_unlabelled",
+ "rep": 1,
+ "condition": "code",
+ "provider": "deepseek",
+ "final_text": "我按你的要求，把 `late_flag` 一并纳入控制后估计了 `D`（平均妥投天数）对 `dY`（post 日均 GMV − pre 日均 GMV）的影响。\n\n## 主要结果\n\n**基准模型（控制 late_flag + 线性控制变量）**  \n控制变量包括：`log_hist_days`、`region`、`log_pre_gmv`、`orders`、`cat_share`、`tenure`、`tier`，并额外控制平行趋势变量 `dY_placebo`，同时控制 `late_flag`。未把 `post_orders` 作为混淆变量。\n\n- `D` 的系数：**−0.0885**\n- 稳健标准误：**0.0048**\n- 95% CI：**[−0.0979, −0.0791]**\n- 对应含义：平均妥投天数每增加 1 天，用户日均 GMV 变化平均下降约 **0.089 个单位**。\n\n如果不加 `dY_placebo`，仅控制其他混淆变量和 `late_flag`，估计为 **−0.0897（95% CI −0.0992 到 −0.0802）**，结论基本一致。\n\n## 重要稳健性发现\n\n`late_flag` 在数据中几乎完全由 `D` 决定：  \n- `late_flag=0` 的 `D` 范围为 2.0–11.999；  \n- `late_flag=1` 的 `D` 范围为 12.000–45.0。  \n\n也就是说，`late_flag` 本质上是「`D≥12`」的阈值标记。因此我进一步做了分段/交互模型，发现效果不是单一线性关系：\n\n| 群体 | 每增加 1 天妥投天数的影响 | 95% CI |\n|---|---:|---:|\n| 非超时用户（`late_flag=0`，D<12） | −0.011 | [−0.023, +0.001] |\n| 超时用户（`late_flag=1`，D≥12） | −0.083 | [−0.093, −0.073] |\n\n非超时组的影响很小且不显著；负向影响主要集中在**超时用户**中。\n\n如果使用带 12 天阈值分段、并允许阈值处斜率变化的更灵活模型，全体用户平均每增加 1 天妥投天数的效果约为：\n\n- **平均效应：−0.038**\n- 95% CI：**[−0.046, −0.031]**\n\n## 结论\n\n控制 `late_flag` 后，线性模型给出的平均效应约为 **每增加 1 天妥投天数，日均 GMV 变化下降 0.089 个单位（95% CI −0.098 到 −0.079）**。  \n但更细致的分析显示，这个负效应主要来自「有包裹超过 12 天」的超时状态：非超时用户影响接近 0，超时用户每增加 1 天平均妥投天数，GMV 变化下降约 **0.083 个单位（95% CI −0.093 到 −0.073）**。  \n另外需要提示：`late_flag` 是妥投天数的结果变量，控制它会将估计解释为「给定是否超时状态下、妥投天数本身的影响」，而非包含阈值跳变的总效应。",
+ "trace": [
+  {
+   "turn": 0,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint(df.shape)\nprint(df.columns.tolist())\nprint(df.head())\nprint(df.dtypes)\nprint(df.describe())\nprint('missing', df.isna().sum())\n"
+   },
+   "is_error": false,
+   "output": "(20000, 12)\n['log_hist_days', 'region', 'log_pre_gmv', 'orders', 'cat_share', 'tenure', 'D', 'dY', 'dY_placebo', 'tier', 'post_orders', 'late_flag']\n   log_hist_days  region  log_pre_gmv  ...  tier  post_orders  late_flag\n0       2.309707     1.0     1.690865  ...     0          0.0        0.0\n1       1.904497     3.0     3.098540  ...     1          4.0        0.0\n2       2.371740     1.0     3.888297  ...     2          5.0        0.0\n3       2.195061     0.0     2.538855  ...     0          2.0        0.0\n4       2.182400     0.0     2.506063  ...     0          1.0        0.0\n\n[5 rows x 12 columns]\nlog_hist_days    float64\nregion           float64\nlog_pre_gmv      float64\norders           float64\ncat_share        float64\ntenure           float64\nD                float64\ndY               float64\ndY_placebo       float64\ntier               int64\npost_orders      float64\nlate_flag        float64\ndtype: object\n       log_hist_days        region  ...   post_orders     late_flag\ncount   20000.000000  20000.000000  ...  20000.000000  20000.000000\nmean        2.196171      1.994250  ...      3.846600      0.282550\nstd         0.350776      1.417398  ...      2.130633      0.450251\nmin         0.755991      0.000000  ...      0.000000      0.000000\n25%         1.960975      1.000000  ...      2.000000      0.000000\n50%         2.197744      2.000000  ...      4.000000      0.000000\n75%         2.430607      3.000000  ...      5.000000      1.000000\nmax         3.531325      4.000000  ...     16.000000      1.000000\n\n[8 rows x 12 columns]\nmissing log_hist_days    0\nregion           0\nlog_pre_gmv      0\norders           0\ncat_share        0\ntenure           0\nD                0\ndY               0\ndY_placebo       0\ntier             0\npost_orders      0\nlate_flag        0\ndtype: int64\n"
+  },
+  {
+   "turn": 1,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint('corr D late_flag', df['D'].corr(df['late_flag']))\nprint('by late_flag:')\nprint(df.groupby('late_flag')[['D','dY','dY_placebo','log_hist_days','log_pre_gmv','orders','cat_share','tenure']].mean())\nprint('D quantiles by late')\nprint(df.groupby('late_flag')['D'].describe())\nprint('corr matrix:')\ncols=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','D','late_flag','dY','dY_placebo']\nprint(df[cols].corr())\n"
+   },
+   "is_error": false,
+   "output": "corr D late_flag 0.7565606435359322\nby late_flag:\n                   D        dY  dY_placebo  ...    orders  cat_share    tenure\nlate_flag                                   ...                               \n0.0         8.561794  0.095038    0.084652  ...  2.803680   0.500650  2.016591\n1.0        15.932120 -0.802638   -0.220403  ...  2.981419   0.503177  1.990667\n\n[2 rows x 8 columns]\nD quantiles by late\n             count       mean       std  ...        50%        75%        max\nlate_flag                                ...                                 \n0.0        14349.0   8.561794  1.882488  ...   8.574436  10.077404  11.999967\n1.0         5651.0  15.932120  4.485741  ...  14.522542  17.186305  45.000000\n\n[2 rows x 8 columns]\ncorr matrix:\n               log_hist_days  log_pre_gmv  ...        dY  dY_placebo\nlog_hist_days       1.000000     0.000267  ... -0.480180   -0.303379\nlog_pre_gmv         0.000267     1.000000  ...  0.074035    0.143804\norders              0.006278     0.448046  ...  0.061896    0.089704\ncat_share          -0.002556     0.001937  ...  0.006757    0.002262\ntenure             -0.009611     0.008315  ...  0.007831    0.011939\nD                   0.636651     0.116598  ... -0.389880   -0.146907\nlate_flag           0.515885     0.091864  ... -0.301284   -0.122697\ndY                 -0.480180     0.074035  ...  1.000000    0.274651\ndY_placebo         -0.303379     0.143804  ...  0.274651    1.000000\n\n[9 rows x 9 columns]\n"
+  },
+  {
+   "turn": 2,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\n# prepare dummies\nX = df[['D','log_hist_days','log_pre_gmv','orders','cat_share','tenure']].copy()\nX = pd.concat([X, pd.get_dummies(df['region'], prefix='region', drop_first=True).astype(float), pd.get_dummies(df['tier'], prefix='tier', drop_first=True).astype(float)], axis=1)\ny=df['dY']\n\ndef ols(Xcols, add_late=False, add_placebo=False):\n    cols=Xcols.copy()\n    if add_late: cols.append('late_flag')\n    if add_placebo: cols.append('dY_placebo')\n    XX=X.join(df[['late_flag','dY_placebo']]) if add_late or add_placebo else X\n    XX=sm.add_constant(XX[cols])\n    res=sm.OLS(y,XX).fit(cov_type='HC1')\n    return res\n\nfor desc, kwargs in [('simple D',{'Xcols':['D']}),('D + pre controls',{'Xcols':['D','log_hist_days','log_pre_gmv','orders','cat_share','tenure','region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2']}),('D + controls + late_flag',{'Xcols':['D','log_hist_days','log_pre_gmv','orders','cat_share','tenure','region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2'],'add_late':True}),('D + controls + late_flag + placebo',{'Xcols':['D','log_hist_days','log_pre_gmv','orders','cat_share','tenure','region_1.0','region_2.0','region_3.0','region_4.0','tier_1','tier_2'],'add_late':True,'add_placebo':True})]:\n    res=ols(**kwargs)\n    print('\\n',desc)\n    print(res.params.get('D'), 'SE', res.bse.get('D'), 'CI', res.conf_int().loc['D'].tolist(), 'n', res.nobs)\n    if 'late_flag' in res.params.index: print('late_flag coef', res.params['late_flag'], 'SE', res.bse['late_flag'])\n    if 'dY_placebo' in res.params.index: print('placebo coef', res.params['dY_placebo'], 'SE', res.bse['dY_placebo'])\n    print('R2', res.rsquared)\n"
+   },
+   "is_error": false,
+   "output": "\n simple D\n-0.11924254007556186 SE 0.0026248579717060086 CI [-0.12438716716463849, -0.11409791298648522] n 20000.0\nR2 0.15200634780915434\n\n D + pre controls\n-0.09381760101587722 SE 0.003653879906913398 CI [-0.10097907403726204, -0.08665612799449239] n 20000.0\nR2 0.30753825711098337\n\n D + controls + late_flag\n-0.08971914211069237 SE 0.004857935434436818 CI [-0.09924052060140948, -0.08019776361997527] n 20000.0\nlate_flag coef -0.05924516345656204 SE 0.031428422156443724\nR2 0.3077045840139294\n\n D + controls + late_flag + placebo\n-0.08844213060799554 SE 0.004824510630650958 CI [-0.09789799768710204, -0.07898626352888903] n 20000.0\nlate_flag coef -0.05106314437167854 SE 0.0311550163550018\nplacebo coef 0.11447204414600554 SE 0.007963967137845347\nR2 0.3154978561484175\n"
+  },
+  {
+   "turn": 3,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint(df.groupby('late_flag')['D'].agg(['min','max','mean','std']))\nprint(df[df['late_flag']==1][['D','log_hist_days','dY']].describe())\nprint('count D<12 by late_flag')\nprint(pd.crosstab(df['late_flag'], df['D']<12))\n# Relationship D and log_hist\nimport statsmodels.api as sm\nX=sm.add_constant(df[['log_hist_days']])\nres=sm.OLS(df['D'],X).fit()\nprint(res.summary().tables[1])\n"
+   },
+   "is_error": false,
+   "output": "                 min        max       mean       std\nlate_flag                                           \n0.0         2.000000  11.999967   8.561794  1.882488\n1.0        12.000135  45.000000  15.932120  4.485741\n                 D  log_hist_days           dY\ncount  5651.000000    5651.000000  5651.000000\nmean     15.932120       2.484522    -0.802638\nstd       4.485741       0.267318     1.548150\nmin      12.000135       1.598621   -11.641775\n25%      13.041313       2.298974    -1.692859\n50%      14.522542       2.475596    -0.672129\n75%      17.186305       2.667006     0.254054\nmax      45.000000       3.531325     3.788681\ncount D<12 by late_flag\nD          False  True \nlate_flag              \n0.0            0  14349\n1.0         5651      0\n=================================================================================\n                    coef    std err          t      P>|t|      [0.025      0.975]\n---------------------------------------------------------------------------------\nconst            -6.8395      0.152    -45.100      0.000      -7.137      -6.542\nlog_hist_days     7.9610      0.068    116.749      0.000       7.827       8.095\n=================================================================================\n"
+  },
+  {
+   "turn": 4,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\ndf=pd.read_csv('data.csv')\n# bin D and mean dY\ndf['Dbin']=pd.cut(df['D'], bins=np.arange(0,46,2), right=False)\nprint(df.groupby('Dbin', observed=True)['dY'].agg(['mean','std','count']))\n"
+   },
+   "is_error": false,
+   "output": "              mean       std  count\nDbin                               \n[2, 4)   -0.879490  1.306883     59\n[4, 6)   -0.013769  1.077397   1333\n[6, 8)    0.193751  1.072543   4295\n[8, 10)   0.152216  1.166990   4896\n[10, 12) -0.038096  1.234243   3766\n[12, 14) -0.279156  1.301304   2383\n[14, 16) -0.671930  1.320320   1354\n[16, 18) -0.951095  1.330536    742\n[18, 20) -1.269966  1.521467    453\n[20, 22) -1.695217  1.400907    272\n[22, 24) -2.179935  1.646338    154\n[24, 26) -2.392606  1.609885     86\n[26, 28) -2.576406  1.550127     62\n[28, 30) -2.785288  1.785583     39\n[30, 32) -3.552831  2.222262     32\n[32, 34) -4.409995  1.734014     14\n[34, 36) -3.322679  1.623840     13\n[36, 38) -3.811015  1.825420      9\n[38, 40) -3.319108  1.108431      5\n[40, 42) -2.914111  1.685615      8\n[42, 44) -6.127274  3.065714      3\n"
+  },
+  {
+   "turn": 5,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\ndf=pd.read_csv('data.csv')\nbase=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\nX=pd.concat([df[base], pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float), pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float), df[['D','late_flag']]],axis=1)\nX['D_late']=X['D']*X['late_flag']\ny=df['dY']\nres=sm.OLS(y, sm.add_constant(X)).fit(cov_type='HC1')\nprint(res.params[['D','late_flag','D_late']])\nprint(res.bse[['D','late_flag','D_late']])\nprint(res.conf_int().loc[['D','late_flag','D_late']])\nprint('pvals', res.pvalues[['D','late_flag','D_late']])\n# Compare effect at late_flag 0 and 1\nprint('effect late0:', res.params['D'])\nprint('effect late1:', res.params['D']+res.params['D_late'])\n# test linear hypothesis D+D_late=0\nprint(res.t_test('D + D_late = 0'))\n"
+   },
+   "is_error": false,
+   "output": "D            0.066470\nlate_flag    2.051765\nD_late      -0.190177\ndtype: float64\nD            0.006201\nlate_flag    0.092685\nD_late       0.007384\ndtype: float64\n                  0         1\nD          0.054316  0.078624\nlate_flag  1.870106  2.233424\nD_late    -0.204650 -0.175704\npvals D             8.308454e-27\nlate_flag    1.390512e-108\nD_late       2.919308e-146\ndtype: float64\neffect late0: 0.06646994595430245\neffect late1: -0.12370684810793084\n                             Test for Constraints                             \n==============================================================================\n                 coef    std err          z      P>|z|      [0.025      0.975]\n------------------------------------------------------------------------------\nc0            -0.1237      0.005    -23.703      0.000      -0.134      -0.113\n==============================================================================\n"
+  },
+  {
+   "turn": 6,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\ndf=pd.read_csv('data.csv')\nbase=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\nX=pd.concat([df[base], pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float), pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float), df[['D']]],axis=1)\nX['D_over12']=np.maximum(df['D']-12,0)\ny=df['dY']\nres=sm.OLS(y, sm.add_constant(X)).fit(cov_type='HC1')\nprint(res.params[['D','D_over12']])\nprint(res.bse[['D','D_over12']])\nprint(res.conf_int().loc[['D','D_over12']])\nprint('pvals', res.pvalues[['D','D_over12']])\n# polynomial cubic in D plus controls\nX2=pd.concat([df[base], pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float), pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float)],axis=1)\nX2['D']=df['D']\nX2['D2']=df['D']**2\nX2['D3']=df['D']**3\nres2=sm.OLS(y, sm.add_constant(X2)).fit(cov_type='HC1')\nprint('poly params', res2.params[['D','D2','D3']])\nprint(res2.pvalues[['D','D2','D3']])\n"
+   },
+   "is_error": false,
+   "output": "D           0.041099\nD_over12   -0.177560\ndtype: float64\nD           0.005423\nD_over12    0.007535\ndtype: float64\n                 0         1\nD         0.030469  0.051728\nD_over12 -0.192328 -0.162793\npvals D            3.506840e-14\nD_over12    8.561737e-123\ndtype: float64\npoly params D     0.368532\nD2   -0.023193\nD3    0.000320\ndtype: float64\nD     5.046387e-67\nD2    6.364928e-71\nD3    5.205843e-42\ndtype: float64\n"
+  },
+  {
+   "turn": 7,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint('corr D and D_late', np.corrcoef(df['D'], df['D']*df['late_flag'])[0,1])\nprint('corr D and late_flag', np.corrcoef(df['D'], df['late_flag'])[0,1])\n# VIF maybe\nimport statsmodels.api as sm\nX=pd.concat([df[['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']], pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float), pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float), df[['D','late_flag']]],axis=1)\nX['D_late']=X['D']*X['late_flag']\nfrom statsmodels.stats.outliers_influence import variance_inflation_factor\nfor col in ['D','late_flag','D_late']:\n    print(col, variance_inflation_factor(X[['D','late_flag','D_late']].values, list(X[['D','late_flag','D_late']].columns).index(col)))\n"
+   },
+   "is_error": false,
+   "output": "corr D and D_late 0.889389746435275\ncorr D and late_flag 0.7565606435359322\nD 7.5674066958230854\nlate_flag 15.897138820996153\nD_late 32.52789533862776\n"
+  },
+  {
+   "turn": 8,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint(df[['dY','log_pre_gmv','orders','post_orders']].describe())\nprint('corr dY log_pre_gmv', df['dY'].corr(df['log_pre_gmv']))\nprint('corr dY post_orders', df['dY'].corr(df['post_orders']))\nprint('dY mean by tier', df.groupby('tier')['dY'].mean())\n"
+   },
+   "is_error": false,
+   "output": "                 dY   log_pre_gmv        orders   post_orders\ncount  20000.000000  20000.000000  20000.000000  20000.000000\nmean      -0.158601      3.000326      2.853900      3.846600\nstd        1.341522      0.999073      1.887812      2.130633\nmin      -11.641775     -2.249639      0.000000      0.000000\n25%       -0.924510      2.328202      1.000000      2.000000\n50%       -0.069090      3.001282      3.000000      4.000000\n75%        0.723786      3.681442      4.000000      5.000000\nmax        4.639100      7.166109     13.000000     16.000000\ncorr dY log_pre_gmv 0.0740352776555776\ncorr dY post_orders 0.05292538683603062\ndY mean by tier tier\n0   -0.311687\n1   -0.096416\n2    0.020670\n3   -0.198988\nName: dY, dtype: float64\n"
+  },
+  {
+   "turn": 9,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, lightgbm as lgb\nfrom sklearn.model_selection import KFold\nfrom sklearn.ensemble import GradientBoostingRegressor\nimport statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ny=df['dY'].values\nD=df['D'].values\n# Pre-treatment features\nX=pd.concat([\n    df[['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']],\n    pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float),\n    pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float)\n], axis=1)\nX=pd.concat([X, df[['late_flag']]], axis=1)  # include late in X for both? we'll use flags\n\ndef dml(X, y, D, include_late_outcome=True, include_late_treatment=True, n_splits=5):\n    n=len(y)\n    res_y=np.zeros(n); res_d=np.zeros(n)\n    kf=KFold(n_splits=n_splits, shuffle=True, random_state=42)\n    for tr,te in kf.split(X):\n        Xtr=X.iloc[tr]; Xte=X.iloc[te]\n        ytr=y[tr]; yte=y[te]; dtr=D[tr]; dte=D[te]\n        if not include_late_treatment:\n            Xtr_d=Xtr.drop(columns=['late_flag']); Xte_d=Xte.drop(columns=['late_flag'])\n        else:\n            Xtr_d=Xtr; Xte_d=Xte\n        model_d=GradientBoostingRegressor(random_state=0, n_estimators=300, max_depth=3, min_samples_leaf=50)\n        model_d.fit(Xtr_d, dtr)\n        pred_d=model_d.predict(Xte_d)\n        res_d[te]=dte-pred_d\n        if not include_late_outcome:\n            Xtr_y=Xtr.drop(columns=['late_flag']); Xte_y=Xte.drop(columns=['late_flag'])\n        else:\n            Xtr_y=Xtr; Xte_y=Xte\n        model_y=GradientBoostingRegressor(random_state=0, n_estimators=300, max_depth=3, min_samples_leaf=50)\n        model_y.fit(Xtr_y, ytr)\n        pred_y=model_y.predict(Xte_y)\n        res_y[te]=yte-pred_y\n    # final ATE: OLS no intercept? partial linear: y_res = theta d_res + eps, use intercept maybe.\n    mod=sm.OLS(res_y, sm.add_constant(res_d)).fit(cov_type='HC1')\n    return mod\n\nfor inc_o, inc_t in [(False,False),(True,False),(True,True)]:\n    mod=dml(X,y,D,include_late_outcome=inc_o, include_late_treatment=inc_t)\n    print('DML late_outcome',inc_o,'late_treatment',inc_t)\n    print('theta',mod.params['D' if False else 1] if False else mod.params.iloc[1], 'SE', mod.bse.iloc[1], 'CI', mod.conf_int().iloc[1].tolist())\n    print(mod.params)\n"
+   },
+   "is_error": true,
+   "output": "DML late_outcome False late_treatment False\n\n[stderr]\nTraceback (most recent call last):\n  File \"/tmp/code_baseline_q6culhgq/script.py\", line 47, in <module>\n    print('theta',mod.params['D' if False else 1] if False else mod.params.iloc[1], 'SE', mod.bse.iloc[1], 'CI', mod.conf_int().iloc[1].tolist())\n                                                                ^^^^^^^^^^^^^^^\nAttributeError: 'numpy.ndarray' object has no attribute 'iloc'\n"
+  },
+  {
+   "turn": 10,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nfrom sklearn.model_selection import KFold\nfrom sklearn.ensemble import GradientBoostingRegressor\nimport statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ny=df['dY'].values\nD=df['D'].values\nX=pd.concat([\n    df[['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']],\n    pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float),\n    pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float)\n], axis=1)\nX=pd.concat([X, df[['late_flag']]], axis=1)\n\ndef dml(X, y, D, include_late_outcome=True, include_late_treatment=True, n_splits=5):\n    n=len(y)\n    res_y=np.zeros(n); res_d=np.zeros(n)\n    kf=KFold(n_splits=n_splits, shuffle=True, random_state=42)\n    for tr,te in kf.split(X):\n        Xtr=X.iloc[tr]; Xte=X.iloc[te]\n        ytr=y[tr]; yte=y[te]; dtr=D[tr]; dte=D[te]\n        if not include_late_treatment:\n            Xtr_d=Xtr.drop(columns=['late_flag']); Xte_d=Xte.drop(columns=['late_flag'])\n        else:\n            Xtr_d=Xtr; Xte_d=Xte\n        model_d=GradientBoostingRegressor(random_state=0, n_estimators=300, max_depth=3, min_samples_leaf=50)\n        model_d.fit(Xtr_d, dtr)\n        res_d[te]=dte-model_d.predict(Xte_d)\n        if not include_late_outcome:\n            Xtr_y=Xtr.drop(columns=['late_flag']); Xte_y=Xte.drop(columns=['late_flag'])\n        else:\n            Xtr_y=Xtr; Xte_y=Xte\n        model_y=GradientBoostingRegressor(random_state=0, n_estimators=300, max_depth=3, min_samples_leaf=50)\n        model_y.fit(Xtr_y, ytr)\n        res_y[te]=yte-model_y.predict(Xte_y)\n    mod=sm.OLS(res_y, sm.add_constant(res_d)).fit(cov_type='HC1')\n    return mod\n\nfor inc_o, inc_t in [(False,False),(True,False),(True,True)]:\n    mod=dml(X,y,D,include_late_outcome=inc_o, include_late_treatment=inc_t)\n    print('DML late_outcome',inc_o,'late_treatment',inc_t)\n    print('theta',mod.params.iloc[1], 'SE', mod.bse.iloc[1], 'CI', mod.conf_int().iloc[1].tolist())\n    print('R2', mod.rsquared)\n"
+   },
+   "is_error": true,
+   "output": "DML late_outcome False late_treatment False\n\n[stderr]\nTraceback (most recent call last):\n  File \"/tmp/code_baseline_q6culhgq/script.py\", line 43, in <module>\n    print('theta',mod.params.iloc[1], 'SE', mod.bse.iloc[1], 'CI', mod.conf_int().iloc[1].tolist())\n                  ^^^^^^^^^^^^^^^\nAttributeError: 'numpy.ndarray' object has no attribute 'iloc'\n"
+  },
+  {
+   "turn": 11,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nmod=sm.OLS(np.array([1,2,3]), sm.add_constant(np.array([1,2,3]))).fit()\nprint(type(mod.params), mod.params)\nprint(mod.params[1], mod.bse[1])\n"
+   },
+   "is_error": false,
+   "output": "<class 'numpy.ndarray'> [-4.4408921e-16  1.0000000e+00]\n1.0000000000000004 7.021666937153403e-16\n"
+  },
+  {
+   "turn": 12,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\nfrom sklearn.model_selection import KFold\nfrom sklearn.ensemble import GradientBoostingRegressor\nimport statsmodels.api as sm\n\ndf=pd.read_csv('data.csv')\ny=df['dY'].values\nD=df['D'].values\nX=pd.concat([\n    df[['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']],\n    pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float),\n    pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float)\n], axis=1)\nX=pd.concat([X, df[['late_flag']]], axis=1)\n\ndef dml(X, y, D, include_late_outcome=True, include_late_treatment=True, n_splits=5):\n    n=len(y)\n    res_y=np.zeros(n); res_d=np.zeros(n)\n    kf=KFold(n_splits=n_splits, shuffle=True, random_state=42)\n    for tr,te in kf.split(X):\n        Xtr=X.iloc[tr]; Xte=X.iloc[te]\n        ytr=y[tr]; yte=y[te]; dtr=D[tr]; dte=D[te]\n        if not include_late_treatment:\n            Xtr_d=Xtr.drop(columns=['late_flag']); Xte_d=Xte.drop(columns=['late_flag'])\n        else:\n            Xtr_d=Xtr; Xte_d=Xte\n        model_d=GradientBoostingRegressor(random_state=0, n_estimators=300, max_depth=3, min_samples_leaf=50)\n        model_d.fit(Xtr_d, dtr)\n        res_d[te]=dte-model_d.predict(Xte_d)\n        if not include_late_outcome:\n            Xtr_y=Xtr.drop(columns=['late_flag']); Xte_y=Xte.drop(columns=['late_flag'])\n        else:\n            Xtr_y=Xtr; Xte_y=Xte\n        model_y=GradientBoostingRegressor(random_state=0, n_estimators=300, max_depth=3, min_samples_leaf=50)\n        model_y.fit(Xtr_y, ytr)\n        res_y[te]=yte-model_y.predict(Xte_y)\n    mod=sm.OLS(res_y, sm.add_constant(res_d)).fit(cov_type='HC1')\n    return mod, res_y, res_d\n\nfor inc_o, inc_t in [(False,False),(True,False),(True,True)]:\n    mod,res_y,res_d=dml(X,y,D,include_late_outcome=inc_o, include_late_treatment=inc_t)\n    print('DML late_outcome',inc_o,'late_treatment',inc_t)\n    print('theta',mod.params[1], 'SE', mod.bse[1], 'CI', mod.conf_int()[1].tolist())\n    print('R2', mod.rsquared)\n"
+   },
+   "is_error": false,
+   "output": "DML late_outcome False late_treatment False\ntheta -0.061752886768079926 SE 0.003194384226948995 CI [-0.06801376480568277, -0.05549200873047708]\nR2 0.029185559660722005\nDML late_outcome True late_treatment False\ntheta -0.04555529786501916 SE 0.0032031238115329467 CI [-0.0518333051736464, -0.039277290556391925]\nR2 0.016159712776408597\nDML late_outcome True late_treatment True\ntheta -0.06336119679270616 SE 0.0040398927568133765 CI [-0.07127924109746461, -0.05544315248794771]\nR2 0.02056244341186808\n"
+  },
+  {
+   "turn": 13,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import PolynomialFeatures, SplineTransformer\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.linear_model import LinearRegression\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\nXbase=df[features].copy()\n# add dummies\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\n# polynomial/spline of continuous\nfor deg in [2,3]:\n    X=pd.concat([Xbase, dummies, df[['D','late_flag']]], axis=1)\n    # add polynomial terms for continuous features\n    for col in features:\n        for p in range(2,deg+1):\n            X[col+'_'+str(p)]=Xbase[col]**p\n    X=sm.add_constant(X)\n    res=sm.OLS(y,X).fit(cov_type='HC1')\n    print('poly deg',deg,'D coef',res.params['D'],'SE',res.bse['D'],'late',res.params['late_flag'])\n# B-spline for continuous features via statsmodels? use patsy not. Try sklearn spline then OLS residuals? \nfrom sklearn.preprocessing import SplineTransformer\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.linear_model import LinearRegression\n# Use spline basis for each continuous, include D and late linearly? Hard to get SE. Instead use sm OLS with spline basis manually.\nfrom sklearn.preprocessing import SplineTransformer\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    cols=[f'{col}_s{i}' for i in range(mat.shape[1])]\n    splines[col]=pd.DataFrame(mat, columns=cols)\nX=pd.concat([df[['D','late_flag']], dummies]+list(splines.values()), axis=1)\nX=sm.add_constant(X)\nres=sm.OLS(y,X).fit(cov_type='HC1')\nprint('spline D coef',res.params['D'],'SE',res.bse['D'],'late',res.params['late_flag'])\n"
+   },
+   "is_error": false,
+   "output": "poly deg 2 D coef -0.06774561645573993 SE 0.004379795856403457 late 0.03030037403381891\npoly deg 3 D coef -0.06723887489783752 SE 0.004391658568911477 late 0.025094554784879868\nspline D coef -0.06807830975113287 SE 0.004445142721339949 late 0.021601748857450316\n"
+  },
+  {
+   "turn": 14,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    splines[col]=pd.DataFrame(mat, columns=[f'{col}_s{i}' for i in range(mat.shape[1])])\nX=pd.concat([df[['D','late_flag']], dummies]+list(splines.values()), axis=1)\nX['D_late']=X['D']*X['late_flag']\nX=sm.add_constant(X)\nres=sm.OLS(y,X).fit(cov_type='HC1')\nprint('D',res.params['D'], res.bse['D'], res.pvalues['D'])\nprint('late_flag',res.params['late_flag'], res.bse['late_flag'], res.pvalues['late_flag'])\nprint('D_late',res.params['D_late'], res.bse['D_late'], res.pvalues['D_late'])\nprint('effect late0', res.params['D'])\nprint('effect late1', res.params['D']+res.params['D_late'])\n# continuous piecewise spline with knot 12\nX2=pd.concat([df[['D']], dummies]+list(splines.values()), axis=1)\nX2['D_over12']=np.maximum(df['D']-12,0)\nX2=sm.add_constant(X2)\nres2=sm.OLS(y,X2).fit(cov_type='HC1')\nprint('piecewise D',res2.params['D'],res2.bse['D'],'D_over12',res2.params['D_over12'],res2.bse['D_over12'])\n"
+   },
+   "is_error": false,
+   "output": "D -0.011064983365204499 0.006140741087945899 0.07156160153224839\nlate_flag 0.8113244403390096 0.0938772591806526 5.504629959067399e-18\nD_late -0.0714833228249118 0.007561499742238115 3.2740279857410985e-21\neffect late0 -0.011064983365204499\neffect late1 -0.0825483061901163\npiecewise D -0.016396913855027 0.005431162905653604 D_over12 -0.06853319025017796 0.007696107938627606\n"
+  },
+  {
+   "turn": 15,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    splines[col]=pd.DataFrame(mat, columns=[f'{col}_s{i}' for i in range(mat.shape[1])])\n# model with piecewise linear D and D_over12, flexible controls\nX2=pd.concat([df[['D']], dummies]+list(splines.values()), axis=1)\nX2['D_over12']=np.maximum(df['D']-12,0)\nX2=sm.add_constant(X2)\nres2=sm.OLS(y,X2).fit()\n# average derivative continuous\nb=res2.params['D']; c=res2.params['D_over12']\nprint('b',b,'c',c)\nprint('avg derivative (small change not crossing):', b + c*np.mean(df['D']>=12))\n# average effect of +1 day for all using model prediction\nX_plus=X2.copy()\nX_plus['D']=X_plus['D']+1\nX_plus['D_over12']=np.maximum(X_plus['D']-12,0)\n# but D_over12 originally correlated with D; this is f(D+1)\npred=res2.predict(X2)\npred_plus=res2.predict(X_plus)\nprint('mean predicted +1 effect', np.mean(pred_plus-pred))\n# also for linear model with D only flexible controls no knot\nXlin=pd.concat([df[['D']], dummies]+list(splines.values()), axis=1)\nXlin=sm.add_constant(Xlin)\nreslin=sm.OLS(y,Xlin).fit()\nprint('linear D coef flex controls', reslin.params['D'])\n# predicted +1 effect for linear is constant = coef\n"
+   },
+   "is_error": false,
+   "output": "b -0.016396913855027 c -0.06853319025017796\navg derivative (small change not crossing): -0.035760966760214785\nmean predicted +1 effect -0.03847851748783311\nlinear D coef flex controls -0.06660459292707792\n"
+  },
+  {
+   "turn": 16,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    splines[col]=pd.DataFrame(mat, columns=[f'{col}_s{i}' for i in range(mat.shape[1])])\n# Polynomial D up to 3 with flex controls\nX=pd.concat([df[['D']], dummies]+list(splines.values()), axis=1)\nfor p in [2,3,4]:\n    X[f'D{p}']=df['D']**p\nX=sm.add_constant(X)\nres=sm.OLS(y,X).fit(cov_type='HC1')\nprint(res.params[['D','D2','D3','D4']])\nprint(res.pvalues[['D','D2','D3','D4']])\nprint(res.rsquared)\n"
+   },
+   "is_error": false,
+   "output": "D     0.264753\nD2   -0.023965\nD3    0.000686\nD4   -0.000007\ndtype: float64\nD     1.233024e-08\nD2    2.087675e-08\nD3    1.240903e-05\nD4    3.543334e-04\ndtype: float64\n0.41549189921188456\n"
+  },
+  {
+   "turn": 17,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    splines[col]=pd.DataFrame(mat, columns=[f'{col}_s{i}' for i in range(mat.shape[1])])\n\n# Model with cubic polynomial in D, flexible controls\nX=pd.concat([df[['D']], dummies]+list(splines.values()), axis=1)\nX['D2']=df['D']**2\nX['D3']=df['D']**3\nX=sm.add_constant(X)\nres=sm.OLS(y,X).fit(cov_type='HC1')\nb=np.array([res.params['D'], res.params['D2'], res.params['D3']])\ncov=res.cov_params().loc[['D','D2','D3'],['D','D2','D3']].values\nDmean=df['D'].mean(); D2mean=(df['D']**2).mean(); D3mean=(df['D']**3).mean()\n# derivative = b1 + 2 b2 D + 3 b3 D^2\ngrad=np.array([1.0, 2*Dmean, 3*D2mean])\navg_deriv=b[0]+2*b[1]*Dmean+3*b[2]*D2mean\nse=np.sqrt(grad @ cov @ grad)\nprint('avg derivative polynomial', avg_deriv, 'SE', se, 'CI', [avg_deriv-1.96*se, avg_deriv+1.96*se])\n# finite difference +1 day average\nX_plus=X.copy()\nX_plus['D']=X_plus['D']+1\nX_plus['D2']=X_plus['D']**2\nX_plus['D3']=X_plus['D']**3\npred=res.predict(X); pred_plus=res.predict(X_plus)\navg_fd=np.mean(pred_plus-pred)\n# SE via delta: mean gradient of f(D+1)-f(D) wrt coefficients. For each obs grad_i = [1, (D+1)^2-D^2, (D+1)^3-D^3] = [1, 2D+1, 3D^2+3D+1]\nG=np.column_stack([np.ones(len(df)), 2*df['D']+1, 3*df['D']**2+3*df['D']+1])\nGmean=G.mean(axis=0)\nse_fd=np.sqrt(Gmean @ cov @ Gmean)\nprint('avg +1 effect polynomial', avg_fd, 'SE', se_fd, 'CI', [avg_fd-1.96*se_fd, avg_fd+1.96*se_fd])\n"
+   },
+   "is_error": false,
+   "output": "avg derivative polynomial -0.0334478201473393 SE 0.004189855249809343 CI [np.float64(-0.04165993643696561), np.float64(-0.025235703857712986)]\navg +1 effect polynomial -0.03771222929400527 SE 0.0038471070247484457 CI [np.float64(-0.04525255906251222), np.float64(-0.030171899525498317)]\n"
+  },
+  {
+   "turn": 18,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    splines[col]=pd.DataFrame(mat, columns=[f'{col}_s{i}' for i in range(mat.shape[1])])\n# piecewise linear with knot at 12, flex controls\nX=pd.concat([df[['D']], dummies]+list(splines.values()), axis=1)\nX['D_over12']=np.maximum(df['D']-12,0)\nX=sm.add_constant(X)\nres=sm.OLS(y,X).fit(cov_type='HC1')\nprint(res.params[['D','D_over12']], res.bse[['D','D_over12']])\nb=res.params['D']; c=res.params['D_over12']\ncov=res.cov_params().loc[['D','D_over12'],['D','D_over12']].values\n# average derivative (small change not crossing threshold): b + c * I(D>=12) -> grad = [1, mean(I(D>=12))]\nind=(df['D']>=12).astype(float)\ngrad_avg=np.array([1.0, ind.mean()])\navg_deriv=b+c*ind.mean()\nse_avg=np.sqrt(grad_avg @ cov @ grad_avg)\nprint('avg derivative piecewise', avg_deriv, 'SE', se_avg, 'CI', [avg_deriv-1.96*se_avg, avg_deriv+1.96*se_avg])\n# average +1 effect f(D+1)-f(D)\n# for D<11: f diff = b; for 11<=D<12: b + c*(D+1-12) = b + c*(D-11); for D>=12: b+c.\ndiff_D = np.where(df['D']<11, 1.0, np.where(df['D']<12, df['D']-11, 0.0))  # coefficient on c? Wait f(D+1)-f(D)= b*1 + c*[(D+1-12)_+ - (D-12)_+]. Coeff vector = [1, delta_over]\ndelta_over=np.maximum(df['D']+1-12,0)-np.maximum(df['D']-12,0)\nG=np.column_stack([np.ones(len(df)), delta_over])\nGmean=G.mean(axis=0)\navg_fd=b+c*delta_over.mean()\nse_fd=np.sqrt(Gmean @ cov @ Gmean)\nprint('avg +1 effect piecewise', avg_fd, 'SE', se_fd, 'CI', [avg_fd-1.96*se_fd, avg_fd+1.96*se_fd])\n"
+   },
+   "is_error": false,
+   "output": "D          -0.016397\nD_over12   -0.068533\ndtype: float64 D           0.005431\nD_over12    0.007696\ndtype: float64\navg derivative piecewise -0.035760966760214785 SE 0.0038752563999301403 CI [np.float64(-0.04335646930407786), np.float64(-0.02816546421635171)]\navg +1 effect piecewise -0.03847851748783311 SE 0.0037070533067842474 CI [np.float64(-0.045744341969130235), np.float64(-0.031212693006535987)]\n"
+  },
+  {
+   "turn": 19,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    splines[col]=pd.DataFrame(mat, columns=[f'{col}_s{i}' for i in range(mat.shape[1])])\nX=pd.concat([df[['D','late_flag']], dummies]+list(splines.values()), axis=1)\nX['D_late']=X['D']*X['late_flag']\nX=sm.add_constant(X)\nres=sm.OLS(y,X).fit(cov_type='HC1')\nb=res.params['D']; c=res.params['late_flag']; d=res.params['D_late']\nprint('coefs', b,c,d)\nprint('SE', res.bse[['D','late_flag','D_late']])\n# predicted +1 effect updating late_flag as I(D+1>=12)\nD=df['D'].values\nold_late=(D>=12).astype(float)\nnew_late=((D+1)>=12).astype(float)\nold_Dlate=D*old_late\nnew_Dlate=(D+1)*new_late\neffect=b*1 + c*(new_late-old_late) + d*(new_Dlate-old_Dlate)\nprint('avg +1 effect interaction model', effect.mean())\n# bootstrap or delta for CI? Use bootstrap with 200 resamples of coefficients? We'll just approximate using bootstrap of data maybe quick.\nrng=np.random.default_rng(42)\nests=[]\nfor i in range(500):\n    idx=rng.integers(0,len(df),len(df))\n    samp=df.iloc[idx]\n    # refit? too expensive; skip? We'll do parametric coefficient covariance instead.\ncov=res.cov_params().loc[['D','late_flag','D_late'],['D','late_flag','D_late']].values\n# effect for each obs gradient wrt [b,c,d]: [1, new_late-old_late, new_Dlate-old_Dlate]\nG=np.column_stack([np.ones(len(df)), new_late-old_late, new_Dlate-old_Dlate])\nGmean=G.mean(axis=0)\nse=np.sqrt(Gmean @ cov @ Gmean)\nprint('SE delta', se, 'CI', [effect.mean()-1.96*se, effect.mean()+1.96*se])\n"
+   },
+   "is_error": false,
+   "output": "coefs -0.011064983365204499 0.8113244403390096 -0.0714833228249118\nSE D            0.006141\nlate_flag    0.093877\nD_late       0.007561\ndtype: float64\navg +1 effect interaction model -0.038001065161004245\nSE delta 0.0037322210754548017 CI [np.float64(-0.04531621846889566), np.float64(-0.030685911853112834)]\n"
+  },
+  {
+   "turn": 20,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint('P D in [11,12)', ((df['D']>=11)&(df['D']<12)).mean())\nprint('P D in [12,13)', ((df['D']>=12)&(df['D']<13)).mean())\n"
+   },
+   "is_error": false,
+   "output": "P D in [11,12) 0.084\nP D in [12,13) 0.068\n"
+  },
+  {
+   "turn": 21,
+   "tool": "run_python",
+   "input": {
+    "code": "import numpy as np\nb=-0.011064983365204499; d=-0.0714833228249118; p=0.28255\nprint(b+d*p)\n# SE delta for avg within-regime derivative using cov from earlier; we need grad [1, p]\n"
+   },
+   "is_error": false,
+   "output": "-0.03126259622938333\n"
+  },
+  {
+   "turn": 22,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np\ndf=pd.read_csv('data.csv')\nprint(df.groupby('late_flag')['D'].var())\nprint(df.groupby('late_flag')['D'].count())\nvar0=df[df.late_flag==0]['D'].var(); n0=(df.late_flag==0).sum()\nvar1=df[df.late_flag==1]['D'].var(); n1=(df.late_flag==1).sum()\nw0=n0*var0; w1=n1*var1\nb0=-0.01106498; b1=-0.08254831\nprint('weighted avg', (w0*b0+w1*b1)/(w0+w1), 'weights', w0, w1)\n"
+   },
+   "is_error": false,
+   "output": "late_flag\n0.0     3.543762\n1.0    20.121871\nName: D, dtype: float64\nlate_flag\n0.0    14349\n1.0     5651\nName: D, dtype: int64\nweighted avg -0.060459538264951186 weights 50849.43560219915 113708.69506552753\n"
+  },
+  {
+   "turn": 23,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    splines[col]=pd.DataFrame(mat, columns=[f'{col}_s{i}' for i in range(mat.shape[1])])\nX=pd.concat([df[['D','late_flag']], dummies]+list(splines.values()), axis=1)\nX['D_late']=X['D']*X['late_flag']\nX=sm.add_constant(X)\nres=sm.OLS(y,X).fit(cov_type='HC1')\nb=res.params['D']; d=res.params['D_late']; c=res.params['late_flag']\ncov=res.cov_params().loc[['D','late_flag','D_late'],['D','late_flag','D_late']].values\n# non-late slope = b\nse_b=res.bse['D']; ci_b=[b-1.96*se_b,b+1.96*se_b]\n# late slope = b+d\nlate_slope=b+d\ng=np.array([1.0,0.0,1.0])\nse_late=np.sqrt(g @ cov @ g)\nci_late=[late_slope-1.96*se_late, late_slope+1.96*se_late]\n# jump at threshold = c + d*12 (at D=12, late vs non-late predicted diff)\njump=c+d*12\ng_j=np.array([0.0,1.0,12.0])\nse_j=np.sqrt(g_j @ cov @ g_j)\nci_j=[jump-1.96*se_j, jump+1.96*se_j]\nprint('non-late slope', b, 'SE', se_b, 'CI', ci_b, 'p', res.pvalues['D'])\nprint('late slope', late_slope, 'SE', se_late, 'CI', ci_late)\nprint('jump at 12', jump, 'SE', se_j, 'CI', ci_j)\n"
+   },
+   "is_error": false,
+   "output": "non-late slope -0.011064983365204499 SE 0.006140741087945899 CI [np.float64(-0.02310083589757846), np.float64(0.0009708691671694615)] p 0.07156160153224839\nlate slope -0.0825483061901163 SE 0.005109546767833716 CI [np.float64(-0.09256301785507039), np.float64(-0.07253359452516221)]\njump at 12 -0.04647543355993189 SE 0.027674857932502912 CI [np.float64(-0.1007181551076376), np.float64(0.007767287987773819)]\n"
+  },
+  {
+   "turn": 24,
+   "tool": "run_python",
+   "input": {
+    "code": "import numpy as np\n# using cov from previous (not available now). recompute quickly? Use approximate values.\n# Let's run quick with saved? not saved. We can recompute in one script for final numbers.\n"
+   },
+   "is_error": false,
+   "output": ""
+  },
+  {
+   "turn": 25,
+   "tool": "run_python",
+   "input": {
+    "code": "import pandas as pd, numpy as np, statsmodels.api as sm\nfrom sklearn.preprocessing import SplineTransformer\n\ndf=pd.read_csv('data.csv')\ny=df['dY']\nfeatures=['log_hist_days','log_pre_gmv','orders','cat_share','tenure','dY_placebo']\ndummies=pd.get_dummies(df[['region','tier']], columns=['region','tier'], drop_first=True).astype(float)\nsplines={}\nfor col in features:\n    tr=SplineTransformer(n_knots=5, degree=3, include_bias=False)\n    mat=tr.fit_transform(df[[col]])\n    splines[col]=pd.DataFrame(mat, columns=[f'{col}_s{i}' for i in range(mat.shape[1])])\n\n# 1 Linear controls OLS with late_flag and placebo\nbase=['log_hist_days','log_pre_gmv','orders','cat_share','tenure']\nXlin=pd.concat([df[base], pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float), pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float), df[['D','late_flag','dY_placebo']]],axis=1)\nXlin=sm.add_constant(Xlin)\nres_lin=sm.OLS(y,Xlin).fit(cov_type='HC1')\nprint('OLS linear controls D:', res_lin.params['D'], 'SE', res_lin.bse['D'], 'CI', res_lin.conf_int().loc['D'].tolist())\nprint('OLS linear controls late:', res_lin.params['late_flag'], 'SE', res_lin.bse['late_flag'])\n\n# 2 Flexible controls + linear D + late_flag\nXflex=pd.concat([df[['D','late_flag']], dummies]+list(splines.values()), axis=1)\nXflex=sm.add_constant(Xflex)\nres_flex=sm.OLS(y,Xflex).fit(cov_type='HC1')\nprint('OLS flex controls D:', res_flex.params['D'], 'SE', res_flex.bse['D'], 'CI', res_flex.conf_int().loc['D'].tolist())\nprint('OLS flex controls late:', res_flex.params['late_flag'], 'SE', res_flex.bse['late_flag'])\n\n# 3 Flexible controls + interaction D*late\nXint=pd.concat([df[['D','late_flag']], dummies]+list(splines.values()), axis=1)\nXint['D_late']=Xint['D']*Xint['late_flag']\nXint=sm.add_constant(Xint)\nres_int=sm.OLS(y,Xint).fit(cov_type='HC1')\nb=res_int.params['D']; c=res_int.params['late_flag']; d=res_int.params['D_late']\ncov=res_int.cov_params().loc[['D','late_flag','D_late'],['D','late_flag','D_late']].values\nprint('Interaction flex: b', b, 'SE', res_int.bse['D'], 'p', res_int.pvalues['D'])\nprint('late coef c', c, 'SE', res_int.bse['late_flag'], 'p', res_int.pvalues['late_flag'])\nprint('D_late d', d, 'SE', res_int.bse['D_late'], 'p', res_int.pvalues['D_late'])\nlate_slope=b+d; g=np.array([1.0,0.0,1.0]); se_late=np.sqrt(g@cov@g)\nprint('late slope', late_slope, 'SE', se_late, 'CI', [late_slope-1.96*se_late, late_slope+1.96*se_late])\navg_within=b+d*df['late_flag'].mean()\ng2=np.array([1.0,0.0,df['late_flag'].mean()]); se_within=np.sqrt(g2@cov@g2)\nprint('avg within-late slope', avg_within, 'SE', se_within, 'CI', [avg_within-1.96*se_within, avg_within+1.96*se_within])\n\n# 4 Flexible piecewise with knot 12 (continuous)\nXpw=pd.concat([df[['D']], dummies]+list(splines.values()), axis=1)\nXpw['D_over12']=np.maximum(df['D']-12,0)\nXpw=sm.add_constant(Xpw)\nres_pw=sm.OLS(y,Xpw).fit(cov_type='HC1')\nb_pw=res_pw.params['D']; c_pw=res_pw.params['D_over12']\ncov_pw=res_pw.cov_params().loc[['D','D_over12'],['D','D_over12']].values\nD=df['D'].values\ndelta_over=np.maximum(D+1-12,0)-np.maximum(D-12,0)\navg_fd=b_pw + c_pw*delta_over.mean()\nGmean=np.array([1.0, delta_over.mean()])\nse_fd=np.sqrt(Gmean@cov_pw@Gmean)\nprint('Piecewise flex D', b_pw, 'SE', res_pw.bse['D'], 'D_over12', c_pw, 'SE', res_pw.bse['D_over12'])\nprint('avg +1 effect piecewise', avg_fd, 'SE', se_fd, 'CI', [avg_fd-1.96*se_fd, avg_fd+1.96*se_fd])\n\n# 5 Total effect no late_flag, linear controls\nXtot=pd.concat([df[base], pd.get_dummies(df['region'],prefix='region',drop_first=True).astype(float), pd.get_dummies(df['tier'],prefix='tier',drop_first=True).astype(float), df[['D','dY_placebo']]],axis=1)\nXtot=sm.add_constant(Xtot)\nres_tot=sm.OLS(y,Xtot).fit(cov_type='HC1')\nprint('Total no late linear controls D:', res_tot.params['D'], 'SE', res_tot.bse['D'], 'CI', res_tot.conf_int().loc['D'].tolist())\n# Total no late flexible controls\nXtot_flex=pd.concat([df[['D']], dummies]+list(splines.values()), axis=1)\nXtot_flex=sm.add_constant(X"
+   },
+   "is_error": false,
+   "output": "OLS linear controls D: -0.08850613628492471 SE 0.004796328304831031 CI [-0.09790676702042359, -0.07910550554942583]\nOLS linear controls late: -0.050449778466610695 SE 0.03107006035372157\nOLS flex controls D: -0.06807830975113287 SE 0.004445142721339949 CI [-0.07679062939109953, -0.0593659901111662]\nOLS flex controls late: 0.021601748857450316 SE 0.028530308846852988\nInteraction flex: b -0.011064983365204499 SE 0.006140741087945899 p 0.07156160153224839\nlate coef c 0.8113244403390096 SE 0.0938772591806526 p 5.504629959067399e-18\nD_late d -0.0714833228249118 SE 0.007561499742238115 p 3.2740279857410985e-21\nlate slope -0.0825483061901163 SE 0.005109546767833716 CI [np.float64(-0.09256301785507039), np.float64(-0.07253359452516221)]\navg within-late slope -0.03126259622938333 SE 0.004779147939923989 CI [np.float64(-0.040629726191634345), np.float64(-0.02189546626713231)]\nPiecewise flex D -0.016396913855027 SE 0.005431162905653604 D_over12 -0.06853319025017796 SE 0.007696107938627606\navg +1 effect piecewise -0.03847851748783311 SE 0.003707053306784248 CI [np.float64(-0.045744341969130235), np.float64(-0.031212693006535987)]\nTotal no late linear controls D: -0.091991566843363 SE 0.0036129832705391017 CI [-0.09907288393036537, -0.08491024975636063]\nTotal no late flex controls D: -0.06660459292707792 SE 0.003435116078938413 CI [-0.07333729672451166, -0.05987188912964418]\n\n\n[提示] 你还剩 3 次工具调用，请准备给出结论。"
+  }
+ ],
+ "turns": 27,
+ "stop_reason": "stop",
+ "input_tokens": 430643,
+ "output_tokens": 25295,
+ "cache_read_input_tokens": 423552,
+ "cache_creation_input_tokens": 0,
+ "seconds": 655.4622733592987
+}

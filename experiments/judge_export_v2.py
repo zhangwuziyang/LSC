@@ -5,6 +5,7 @@
 import argparse
 import json
 import random
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -13,6 +14,11 @@ from experiments.judge_export import mask
 from sim.traps_v2 import BY_ID, truth
 
 ROOT = Path(__file__).parent / "results" / "e2v2"
+
+
+# Words that only say which condition produced the answer (checks switched off), with no
+# analytic content; masked on top of the v1 masks.
+_MASK_V2 = re.compile(r"该检查未执行|未检查|未评估")
 
 
 def shown_to_user(rec):
@@ -40,7 +46,7 @@ def main():
             task = BY_ID[rec["task"]]
             ref = json.loads((ROOT / "reference" / f"{rec['task']}_{rec['rep']}.json").read_text())
             items.append(dict(folder=folder.name, task=rec["task"], rep=rec["rep"], question=task.question,
-                              truth=truth(task, ref), answer=mask(shown_to_user(rec))))
+                              truth=truth(task, ref), answer=_MASK_V2.sub("[…]", mask(shown_to_user(rec)))))
     random.Random(args.seed).shuffle(items)
     out = Path(__file__).parent / "judging_v2"
     key = []
