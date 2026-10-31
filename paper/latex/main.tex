@@ -199,6 +199,27 @@ Normal tail & Normal GPS + two-step & 0.175 & 12.3\% & 0\% & 0.057 \\
 
 \textbf{Where the coverage loss comes from.} Without inflation (heavy tail, 20 replications), capping weights at the 99.9th percentile causes a small bias ($+0.015$) but removing the cap raises RMSE 2.4-fold (0.074 $\to$ 0.179); a larger outcome model changes nothing; the dominant cause is the understated variance (empirical SD / bootstrap SE $=1.18$), which the inflation corrects.
 
+\subsection{E1b: misspecification, confounding and sample size}\label{sec:e1b}
+We next break the GPS's location-scale assumption and vary confounding and $n$ (Table~\ref{tab:e1b}). \emph{Bimodal}: the dose comes from two shipping channels; \emph{gamma}: the dose is gamma with covariate-dependent shape, so its skewness varies with $x$; \emph{strong}: confounding 2.5 times stronger plus a covariate interaction. ``Ours'' chooses the GPS preset by cross-fitted likelihood. In every scenario our RMSE is between a sixth and a half of the industry estimator's, and the industry intervals almost never cover. Two results qualify the method. First, preset selection is necessary: with the default preset the GBM GPS overfits the bimodal dose and the small sample (RMSE 0.231 and 0.152; widths 1.03 and 1.30), and selection removes this. Second, under the gamma dose all three DR variants undercover (67--82\%); ours reaches 74\%. Intervals there are narrow (0.09), and the residual smoothing and trimming bias (0.027) is about 60\% of the half-width. A normal GPS gives lower RMSE under the bimodal dose (0.044) but covers only 77\%.
+
+\begin{table}[t]
+\caption{E1b: industry estimator vs.\ ours (GBM GPS + DR, preset selected), 15 replications (10 at $n{=}50$k).}\label{tab:e1b}
+\small\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+ & \multicolumn{2}{c}{Industry} & \multicolumn{3}{c}{Ours} \\
+\cmidrule(lr){2-3}\cmidrule(l){4-6}
+Scenario & RMSE & Cover. & RMSE & Cover. & Band \\
+\midrule
+Strong confounding & 0.413 & 4.7\% & 0.073 & 96.0\% & 100\% \\
+Bimodal dose & 0.159 & 3.7\% & 0.067 & 92.3\% & 100\% \\
+Gamma dose & 0.123 & 0.0\% & 0.032 & 74.3\% & 53\% \\
+$n=5{,}000$ & 0.168 & 27.3\% & 0.089 & 94.7\% & 100\% \\
+$n=50{,}000$ & 0.160 & 8.0\% & 0.054 & 91.5\% & 100\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{E2a: the placebo gate}\label{sec:e2a}
 With 15 replications per violation strength, G4 flags 0/15, 9/15, 14/15 and 15/15 runs at $\tau=0, 0.25, 0.5, 1$ (Figure~\ref{fig:e2a}). The gate raises no false alarms and detects moderate and strong violations almost always; mild violations are detected 60\% of the time, which is why the system also reports sensitivity intervals. At every $\tau$ the maximum placebo deviation (0.18, 0.34, 0.56, 1.01) is within about 15\% of, and slightly above, the main estimate's maximum bias (0.17, 0.30, 0.51, 0.97)---the empirical basis for $M=1$.
 
@@ -261,7 +282,7 @@ The placebo test fails in both specifications (Figure~\ref{fig:e3}) (maximum dev
 
 %=======================================================================================
 \section{Discussion and Limitations}
-The simulated dose follows a location-scale model, which matches our GPS; more complex conditional distributions remain to be tested. Variance inflation multiplies runtime by about six. Kink intervals are conservative. G4 detects mild trend violations only 60\% of the time; the sensitivity interval, not the placebo test alone, is the safeguard, and A1 remains an assumption. Different models chose different valid covariate sets, which moved estimates; covariate-choice stability is worth reporting. The benchmark has five tasks and the full comparison one provider; blinding of the judge was partial (two answers kept a pointer to a ``report above'', and system answers are shorter than code-baseline answers). Our automatic graders were revised six times during piloting; each revision made the gates-hidden condition look \emph{worse}, not better.
+When the dose skewness varies with covariates (gamma scenario, \S\ref{sec:e1b}), intervals undercover (74\%): once intervals are narrow, smoothing and trimming bias is no longer negligible; stronger undersmoothing or explicit bias correction is future work. Variance inflation multiplies runtime by about six. Kink intervals are conservative. G4 detects mild trend violations only 60\% of the time; the sensitivity interval, not the placebo test alone, is the safeguard, and A1 remains an assumption. Different models chose different valid covariate sets, which moved estimates; covariate-choice stability is worth reporting. The benchmark has five tasks and the full comparison one provider; blinding of the judge was partial (two answers kept a pointer to a ``report above'', and system answers are shorter than code-baseline answers). Our automatic graders were revised six times during piloting; each revision made the gates-hidden condition look \emph{worse}, not better.
 
 \section{Conclusion}
 Continuous-treatment DID is routinely run with a normal GPS and a two-step estimator. Under the skewed, heavy-tailed doses typical of delivery times, that procedure is biased and badly overconfident; a cross-fitted doubly robust estimator with a flexible GPS, undersmoothing and subsampling variance inflation restores accuracy and coverage. Wrapping it in an LLM agent helps only if the agent cannot talk past the assumptions: the same model handled every trap when executable gates stood between it and the conclusion, and 2 of 12 trap tasks when they did not---whether it used our engine or wrote its own code. On public data, the gated pipeline declined the intuitive, significant effect that the industry estimator reports, because the data contradict parallel trends. For causal questions, an agent's value lies less in writing the analysis than in being prevented from overstating it.
