@@ -6,10 +6,6 @@
 \newtheorem{proposition}{Proposition}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric}
 
-% Facts about the motivating internal analysis. They need the company's written approval
-% before submission; set \showinternal to false to drop them.
-\newif\ifshowinternal \showinternaltrue
-\newcommand{\internal}[2]{\ifshowinternal#1\else#2\fi}
 
 \setcopyright{none}
 \acmConference[Under review]{}{}{}
@@ -19,7 +15,7 @@
 \begin{document}
 
 \title{Assumption-Gated LLM Agents for Continuous-Treatment Difference-in-Differences}
-\subtitle{Evidence from Cross-Border E-commerce Logistics}
+\subtitle{An Application to E-commerce Delivery Times}
 
 \author{Anonymous Author(s)}
 \affiliation{\institution{Anonymous Institution}\country{}}
@@ -35,9 +31,9 @@ How much does a slower delivery cost an e-commerce platform in future sales? Del
 %=======================================================================================
 \section{Introduction}
 
-Logistics teams in cross-border e-commerce face a recurring question: if we shorten delivery for customers who currently wait 12--14 days, how much additional revenue follows? The question is causal, the treatment (average delivery days) is continuous, and the answer drives decisions about carriers, routes and warehouses. Faster delivery is known to raise sales and repeat purchases~\cite{fisher2019value,rao2011failure}, but the size and shape of the effect at a given platform has to be estimated from observational data.
+Logistics teams in e-commerce face a recurring question: if we shorten delivery for customers who currently wait 12--14 days, how much additional revenue follows? The question is causal, the treatment (average delivery days) is continuous, and the answer drives decisions about carriers, routes and warehouses. Faster delivery is known to raise sales and repeat purchases~\cite{fisher2019value,rao2011failure}, but the size and shape of the effect at a given platform has to be estimated from observational data.
 
-A common industry answer combines a generalized propensity score~\cite{hirano2004propensity,imai2004causal} with a pre/post difference in spending. Our starting point was one such analysis\internal{ of 1.4 million customers of a cross-border marketplace}{}. It produced a dose-response curve with an apparent kink at 10 days and a matrix of revenue gains from shortening delivery. On inspection it had four gaps that are typical of practice: (i) the GPS assumed normally distributed delivery times although the observed distribution was strongly right-skewed\internal{ (skewness 7.1, excess kurtosis 67.9)}{}; (ii) the identification condition for DID with a continuous treatment and no untreated group---a \emph{strong} parallel-trends assumption~\cite{callaway2024difference}---was neither stated nor tested; (iii) regions of thin support were graded with ad hoc density thresholds; and (iv) the gain matrix carried no uncertainty.
+A common industry answer combines a generalized propensity score~\cite{hirano2004propensity,imai2004causal} with a pre/post difference in spending, usually through a normal GPS and the Hirano--Imbens two-step estimator, and reports a dose-response curve together with a matrix of revenue gains from shortening delivery. Such analyses have four gaps that are typical of practice: (i) the GPS assumes normally distributed delivery times, although delivery times are strongly right-skewed and heavy-tailed (in the public Olist data used in \S\ref{sec:olist}, skewness 3.8); (ii) the identification condition for DID with a continuous treatment and no untreated group---a \emph{strong} parallel-trends assumption~\cite{callaway2024difference}---is rarely stated or tested; (iii) regions of thin support are graded with ad hoc density thresholds; and (iv) the gain matrix carries no uncertainty.
 
 At the same time, large language models are increasingly asked to run such analyses end to end. They write plausible code quickly, but the characteristic failures of causal analysis are exactly the ones a fluent model glosses over: conditioning on a post-treatment variable because the user asked for it, reporting a confident effect where a placebo test fails, extrapolating into regions without data, and restating numbers that no computation produced~\cite{ji2023survey,zecevic2023causal}.
 
