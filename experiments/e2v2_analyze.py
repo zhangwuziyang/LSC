@@ -80,20 +80,30 @@ def main():
                   p.groupby(["folder", "trap"]).ok.agg(["sum", "count"]).unstack().to_markdown(), ""]
 
     # Paired comparisons on the same dataset (task, rep). The fixed workflow has no provider.
-    ok = df.assign(ok=df.A == "pass").pivot_table(index=["task", "rep"], columns="folder", values="ok", aggfunc="first")
-    lines += ["## Paired comparisons (judge A; exact McNemar; b = only first passes, c = only second passes)", "",
-              "| comparison | n pairs | first | second | b | c | p |", "|---|---|---|---|---|---|---|"]
-    providers = sorted({f.rsplit("_", 1)[1] for f in ok.columns if f != "fixed"})
+    # Replications of a task share its design, so a task-level sign test (14 units) is reported too.
+    providers = sorted({f.rsplit("_", 1)[1] for f in df.folder.unique() if f != "fixed"})
     pairs = []
     for prov in providers:
         pairs += [(f"full_{prov}", "fixed"), ("fixed", f"code_{prov}"), (f"full_{prov}", f"no_gates_{prov}"),
                   (f"full_{prov}", f"code_{prov}")]
-    for x, y in pairs:
-        if x not in ok or y not in ok:
-            continue
-        sub = ok[[x, y]].dropna().astype(bool)
-        b, c, pv = mcnemar(sub[x].to_numpy(), sub[y].to_numpy())
-        lines.append(f"| {x} vs {y} | {len(sub)} | {sub[x].mean():.0%} | {sub[y].mean():.0%} | {b} | {c} | {pv:.3g} |")
+    for col in ("A", "majority"):
+        ok = df.assign(ok=df[col] == "pass").pivot_table(index=["task", "rep"], columns="folder", values="ok",
+                                                         aggfunc="first")
+        lines += [f"## Paired comparisons ({col}; exact McNemar on (task, rep) pairs, b = only first passes, "
+                  "c = only second passes; sign test on per-task pass counts)", "",
+                  "| comparison | n pairs | first | second | b | c | p | tasks +/−/= | sign p |",
+                  "|---|---|---|---|---|---|---|---|---|"]
+        for x, y in pairs:
+            if x not in ok or y not in ok:
+                continue
+            sub = ok[[x, y]].dropna().astype(bool)
+            b, c, pv = mcnemar(sub[x].to_numpy(), sub[y].to_numpy())
+            d = sub.groupby(level="task").sum().pipe(lambda t: t[x] - t[y])
+            up, down = int((d > 0).sum()), int((d < 0).sum())
+            sp = binomtest(up, up + down).pvalue if up + down else 1.0
+            lines.append(f"| {x} vs {y} | {len(sub)} | {sub[x].mean():.0%} | {sub[y].mean():.0%} | {b} | {c} | "
+                         f"{pv:.3g} | {up}/{down}/{int((d == 0).sum())} | {sp:.3g} |")
+        lines.append("")
 
     costs = run_costs()
     if len(costs):

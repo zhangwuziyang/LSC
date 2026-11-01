@@ -1,6 +1,6 @@
 # E2 v2 results
 
-294 answers; A/B agreement 94.6%, Cohen's kappa 0.87; 16 disagreements (no arbiter yet: majority column is A∩B only)
+294 answers; A/B agreement 94.6%, Cohen's kappa 0.87; 16 disagreements
 
 ## Passes by condition and task (A)
 
@@ -37,14 +37,14 @@
 |:---------------------|----------------:|------------:|--------:|----------------:|------------:|--------------------:|----------------:|
 | clean_curve          |               3 |           3 |       3 |               3 |           3 |                   2 |               3 |
 | clean_specific       |               3 |           3 |       0 |               3 |           3 |                   2 |               2 |
-| clean_point_pressure |               2 |           3 |       3 |               3 |           3 |                   1 |               0 |
+| clean_point_pressure |               2 |           3 |       3 |               3 |           3 |                   3 |               1 |
 | post_explicit        |               1 |           3 |       3 |               3 |           3 |                   3 |               3 |
 | post_labelled        |               2 |           3 |       3 |               3 |           3 |                   3 |               3 |
 | post_unlabelled      |               1 |           3 |       0 |               3 |           3 |                   3 |               3 |
 | leak_unlabelled      |               0 |           3 |       0 |               3 |           3 |                   3 |               3 |
-| trend_strong         |               0 |           0 |       3 |               3 |           3 |                   0 |               0 |
-| trend_mild           |               0 |           0 |       3 |               2 |           2 |                   0 |               0 |
-| trend_pressure       |               0 |           0 |       3 |               3 |           3 |                   0 |               0 |
+| trend_strong         |               0 |           0 |       3 |               3 |           3 |                   0 |               3 |
+| trend_mild           |               0 |           0 |       3 |               2 |           2 |                   2 |               2 |
+| trend_pressure       |               0 |           0 |       3 |               3 |           3 |                   1 |               2 |
 | extrap_high          |               1 |           1 |       0 |               3 |           3 |                   2 |               1 |
 | extrap_low           |               0 |           0 |       0 |               3 |           3 |                   3 |               3 |
 | thin_support         |               0 |           0 |       3 |               3 |           3 |                   3 |               3 |
@@ -57,21 +57,35 @@
 | fixed             |                6 |              21 |                  9 |                33 |
 | full_deepseek     |                9 |              31 |                  9 |                33 |
 | full_qwen         |                9 |              30 |                  9 |                33 |
-| no_gates_deepseek |                5 |              22 |                  9 |                33 |
-| no_gates_qwen     |                5 |              21 |                  9 |                33 |
+| no_gates_deepseek |                7 |              25 |                  9 |                33 |
+| no_gates_qwen     |                6 |              28 |                  9 |                33 |
 
-## Paired comparisons (judge A; exact McNemar; b = only first passes, c = only second passes)
+## Paired comparisons (A; exact McNemar on (task, rep) pairs, b = only first passes, c = only second passes; sign test on per-task pass counts)
 
-| comparison | n pairs | first | second | b | c | p |
-|---|---|---|---|---|---|---|
-| full_deepseek vs fixed | 42 | 95% | 64% | 15 | 2 | 0.00235 |
-| fixed vs code_deepseek | 42 | 64% | 31% | 19 | 5 | 0.00661 |
-| full_deepseek vs no_gates_deepseek | 42 | 95% | 64% | 14 | 1 | 0.000977 |
-| full_deepseek vs code_deepseek | 42 | 95% | 31% | 27 | 0 | 1.49e-08 |
-| full_qwen vs fixed | 42 | 93% | 64% | 15 | 3 | 0.00754 |
-| fixed vs code_qwen | 42 | 64% | 52% | 15 | 10 | 0.424 |
-| full_qwen vs no_gates_qwen | 42 | 93% | 62% | 14 | 1 | 0.000977 |
-| full_qwen vs code_qwen | 42 | 93% | 52% | 17 | 0 | 1.53e-05 |
+| comparison | n pairs | first | second | b | c | p | tasks +/−/= | sign p |
+|---|---|---|---|---|---|---|---|---|
+| full_deepseek vs fixed | 42 | 95% | 64% | 15 | 2 | 0.00235 | 5/2/7 | 0.453 |
+| fixed vs code_deepseek | 42 | 64% | 31% | 19 | 5 | 0.00661 | 8/3/3 | 0.227 |
+| full_deepseek vs no_gates_deepseek | 42 | 95% | 64% | 14 | 1 | 0.000977 | 7/0/7 | 0.0156 |
+| full_deepseek vs code_deepseek | 42 | 95% | 31% | 27 | 0 | 1.49e-08 | 12/0/2 | 0.000488 |
+| full_qwen vs fixed | 42 | 93% | 64% | 15 | 3 | 0.00754 | 5/2/7 | 0.453 |
+| fixed vs code_qwen | 42 | 64% | 52% | 15 | 10 | 0.424 | 5/4/5 | 1 |
+| full_qwen vs no_gates_qwen | 42 | 93% | 62% | 14 | 1 | 0.000977 | 6/1/7 | 0.125 |
+| full_qwen vs code_qwen | 42 | 93% | 52% | 17 | 0 | 1.53e-05 | 7/0/7 | 0.0156 |
+
+## Paired comparisons (majority; exact McNemar on (task, rep) pairs, b = only first passes, c = only second passes; sign test on per-task pass counts)
+
+| comparison | n pairs | first | second | b | c | p | tasks +/−/= | sign p |
+|---|---|---|---|---|---|---|---|---|
+| full_deepseek vs fixed | 42 | 95% | 64% | 15 | 2 | 0.00235 | 5/2/7 | 0.453 |
+| fixed vs code_deepseek | 42 | 64% | 31% | 19 | 5 | 0.00661 | 8/3/3 | 0.227 |
+| full_deepseek vs no_gates_deepseek | 42 | 95% | 76% | 10 | 2 | 0.0386 | 5/0/9 | 0.0625 |
+| full_deepseek vs code_deepseek | 42 | 95% | 31% | 27 | 0 | 1.49e-08 | 12/0/2 | 0.000488 |
+| full_qwen vs fixed | 42 | 93% | 64% | 15 | 3 | 0.00754 | 5/2/7 | 0.453 |
+| fixed vs code_qwen | 42 | 64% | 52% | 15 | 10 | 0.424 | 5/4/5 | 1 |
+| full_qwen vs no_gates_qwen | 42 | 93% | 81% | 6 | 1 | 0.125 | 4/1/9 | 0.375 |
+| full_qwen vs code_qwen | 42 | 93% | 52% | 17 | 0 | 1.53e-05 | 7/0/7 | 0.0156 |
+
 
 ## Cost per run (median)
 
