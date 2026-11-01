@@ -25,7 +25,7 @@
 \affiliation{\institution{Anonymous Institution}\country{}}
 
 \begin{abstract}
-How much does a slower delivery cost an e-commerce platform in future sales? Delivery time is a continuous treatment, and practitioners answer such questions with a generalized propensity score (GPS) combined with difference-in-differences (DID). We show that the variant common in industry---a normal GPS with the Hirano--Imbens two-step estimator---is biased by a factor of 2.5--3 and produces confidence intervals that cover the truth in only 12--14\% of simulated replications when delivery times are right-skewed and heavy-tailed, as they are in practice. A cross-fitted doubly robust dose-response estimator on a heteroskedastic gradient-boosting GPS, with an undersmoothed bandwidth and a subsampling variance inflation, restores nominal coverage (96.5\%). We wrap this estimator in an LLM agent whose numbers come only from a deterministic engine and whose every step passes an executable gate: covariate timing, weighted balance, overlap, a placebo parallel-trends test, and a number check on the final report. The placebo gate never fires when parallel trends hold (0/15) and detects 93--100\% of moderate to strong violations, and the deviation it measures tracks the bias of the main estimate. On a benchmark of analysis tasks seeded with common errors, the gated agent handled every trap correctly, while the same model with gates hidden---or writing its own analysis code---handled 2 of 12 trap tasks, typically by conditioning on a post-treatment variable, claiming that a failed placebo test had passed, or reporting confident estimates where the data had no support. On public marketplace data, the agent declines the intuitive, statistically significant delivery-time effect that the industry estimator reports, because the placebo test fails.
+How much does a slower delivery cost an e-commerce platform in future sales? Delivery time is a continuous treatment, and practitioners answer such questions with a generalized propensity score (GPS) combined with difference-in-differences (DID). We show that the variant common in industry---a normal GPS with the Hirano--Imbens two-step estimator---is biased by a factor of 2.5--3 and produces confidence intervals that cover the truth in only 12--14\% of simulated replications when delivery times are right-skewed and heavy-tailed, as they are in practice. A cross-fitted doubly robust dose-response estimator on a heteroskedastic gradient-boosting GPS, with an undersmoothed bandwidth and a subsampling variance inflation, restores nominal coverage (96.5\%). We wrap this estimator in an LLM agent whose numbers come only from a deterministic engine and whose every step passes an executable gate: covariate timing, weighted balance, overlap, a placebo parallel-trends test, and a number check on the final report. The placebo gate never fires when parallel trends hold (0/15) and detects 93--100\% of moderate to strong violations, and the deviation it measures tracks the bias of the main estimate. On a pre-registered benchmark of 14 analysis tasks run with two LLMs (294 blindly judged answers), the gated agent answered 93--95\% correctly, against 64\% for the same engine and gates run as a fixed workflow without an LLM, 62--64\% with the gates hidden from the model, and 31--52\% when the model wrote its own analysis code. The fixed workflow failed exactly where we predicted, on tasks that require reading a variable's definition or answering the specific question asked; hiding the gates failed every parallel-trends trap; writing code failed nearly all trend and sparse-support traps. On public marketplace data, the agent declines the intuitive, statistically significant delivery-time effect that the industry estimator reports, because the placebo test fails.
 \end{abstract}
 
 \keywords{causal inference, continuous treatment, difference-in-differences, generalized propensity score, LLM agents, e-commerce logistics}
@@ -45,7 +45,7 @@ We make three contributions.
 \begin{enumerate}
 \item \textbf{Method.} A doubly robust GPS-DID procedure for heavy-tailed continuous treatments with valid inference: a heteroskedastic gradient-boosting GPS on log dose, a cross-fitted pseudo-outcome estimator~\cite{kennedy2017nonparametric}, undersmoothing plus a subsampling variance inflation that repairs the undercoverage of the multiplier bootstrap, and overlap and balance thresholds calibrated in simulation (\S\ref{sec:method}).
 \item \textbf{System.} An LLM agent in which the model plans and explains but never computes; every number comes from a deterministic engine, and each analysis step is guarded by an executable gate that can block or downgrade the conclusion (\S\ref{sec:system}).
-\item \textbf{Evidence.} A~semi-synthetic benchmark with known ground truth, including analysis tasks seeded with common errors, to measure estimator accuracy, gate operating characteristics, and agent behaviour with and without gates and against a code-writing baseline; and a case study on public marketplace data (\S\ref{sec:experiments}).
+\item \textbf{Evidence.} Semi-synthetic experiments with known ground truth on estimator accuracy and robustness and on gate operating characteristics; a pre-registered benchmark of 14 trap tasks that separates what the LLM contributes from what the engine and gates contribute, using two LLMs, a code-writing baseline and a fixed no-LLM workflow; and a case study on public marketplace data (\S\ref{sec:experiments}).
 \end{enumerate}
 
 %=======================================================================================
@@ -230,40 +230,50 @@ With 15 replications per violation strength, G4 flags 0/15, 9/15, 14/15 and 15/1
 \label{fig:e2a}
 \end{figure}
 
-\subsection{E2b: agents on a trap benchmark}
-Five tasks: a clean task; a user request to control for a post-treatment variable; a parallel-trends violation ($\tau=1$); a question about a dose in the sparse tail (19 days); and a dataset whose tail beyond 16 days is almost empty. Four conditions with DeepSeek-V4-Pro, three replications each: the full system; the semantic layer removed; gate verdicts hidden from the model (still recorded for grading); and a \emph{code baseline}, in which the model receives the same question, data and data dictionary (with each column's measurement period) and a Python tool, but no engine, gates or number check. All 60 answers were graded by a blinded judge---a separate model session that saw only shuffled answers with condition-revealing phrases masked, each dataset's ground truth, and a fixed rubric (an answer fails a sparse-dose task if it states a numeric gain for that dose, even with a caveat; it fails the trend task unless it flags the violation \emph{and} withholds a firm causal estimate).
+\subsection{E2b: agents on a pre-registered trap benchmark}\label{sec:e2b}
+A five-task pilot with one model (all traps handled with gates, 2 of 12 without) motivated a larger benchmark whose tasks, rubric and predictions were committed before any run. It has 14 tasks of six types, each run on fresh data ($n=20{,}000$) in three replications: \emph{clean} (the full curve; a specific dose pair, 11$\to$10 days; a user who demands one number without an interval); \emph{post-treatment covariates} (post-period orders named in the request; a service score labelled post-period; a refund rate whose period is \emph{unlabelled} and must be read from its definition); a \emph{treatment-derived} late-delivery flag, also unlabelled; \emph{parallel-trends violations} (strong, mild, and a user asking to skip the test); \emph{extrapolation} (19$\to$10 days, 5$\to$3 days, thin support beyond 16 days); and a \emph{kink} question (``is 10 days the tolerance threshold?'').
+
+Four conditions see the same datasets: the full system; \emph{gates hidden}, in which verdicts are still computed but reported to the model as ``not performed''; the \emph{code baseline}, in which the model gets the question, data, data dictionary (with measurement periods where known) and a Python tool, but no engine or gates; and a \emph{fixed workflow} that runs the same engine and gates without an LLM, using every covariate labelled pre-period or unlabelled, the default dose pairs and the template report. We ran the three LLM conditions with DeepSeek-V4-Pro and Qwen3.8-Max, giving 294 answers. Two independent judge sessions graded all of them, shuffled and with condition-revealing phrases masked, on a branch holding only the rubric and the answers; they agreed on 94.6\% ($\kappa=0.87$), and a third judged the 16 disagreements. We report the pre-registered primary judge (A) and the majority vote.
 
 \begin{table}[t]
-\caption{E2b, DeepSeek-V4-Pro, runs passed out of 3 (blinded judge).}\label{tab:e2b}
-\small
-\begin{tabular}{@{}lcccc@{}}
+\caption{E2b: runs passed by task type (judge A; majority vote in parentheses where different). D = DeepSeek-V4-Pro, Q = Qwen3.8-Max.}\label{tab:e2b}
+\small\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}lrcccc@{}}
 \toprule
-Task & Full & No sem.\ layer & Gates hidden & Code \\
+Task type & $n$ & Fixed & Full D/Q & Hidden D/Q & Code D/Q \\
 \midrule
-Clean & 3 & 3 & 3 & 3 \\
-Post-treatment covariate & 3 & 3 & 0 & 2 \\
-Parallel-trends violation & 3 & 3 & 0 & 0 \\
-Sparse dose (19 days) & 3 & 3 & 1 & 0 \\
-Thin support ($\ge$16 days) & 3 & 3 & 1 & 0 \\
+Clean & 9 & 6 & 9/9 & 5/5 (7/6) & 8/9 \\
+Post-treatment & 9 & 6 & 9/9 & 9/9 & 4/9 \\
+Treatment-derived & 3 & 0 & 3/3 & 3/3 & 0/3 \\
+Trend violation & 9 & 9 & 8/8 & 0/0 (3/7) & 0/0 \\
+Extrapolation & 9 & 3 & 9/9 & 8/7 & 1/1 \\
+Kink & 3 & 3 & 2/1 & 2/2 & 0/0 \\
 \midrule
-Total & \textbf{15} & \textbf{15} & 5 & 5 \\
+Total & 42 & 27 & \textbf{40/39} & 27/26 (32/34) & 13/22 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-With gates the model answered every trap correctly; without them it answered 2 of 12 trap tasks correctly, whether it used our engine or wrote its own code (Table~\ref{tab:e2b}). The failures differ. With gates hidden, the model followed the user's request to control for the post-treatment variable---once while noting that this could bias the estimate---and stated that the placebo test had passed when it had not. Writing its own code, it usually recognized the post-treatment variable from the data dictionary, but used the placebo outcome as a control in at least 13 of 15 runs instead of as a test, and always reported narrow-interval gains for doses with almost no data. Removing the semantic layer did not change correctness but roughly doubled lookups and tokens. The code baseline was 10--40$\times$ more expensive (160k--660k input tokens and 6--31 minutes per run, against 26k--53k and 4--7 minutes). Table~\ref{tab:quotes} gives representative answers (translated from Chinese). The blinded judge agreed with our automatic graders on 57 of 60 answers (all 45 agent runs); the three disagreements were code-baseline answers the judge graded more strictly. Qwen3.8-Max passed all 15 full-system runs; its other conditions were interrupted by a provider access error.
+\textbf{What the LLM adds.} The full system passed 40 and 39 of 42 runs; the fixed workflow 27 (Table~\ref{tab:e2b}; paired McNemar $p=0.002$ and $0.008$). The difference lies where we predicted: the fixed workflow failed every replication of five tasks---it kept the unlabelled refund rate and late flag as controls, and answered default dose pairs instead of the 11$\to$10, 19$\to$10 and 5$\to$3 contrasts asked for---and the full system passed all 30 of these runs with both models. The fixed workflow did better on two tasks (below). With 14 tasks a task-level sign test has little power (5 tasks better, 2 worse, $p=0.45$): the LLM's contribution is concentrated on reading definitions and answering the question asked, not spread across the board.
+
+\textbf{What the gates add.} With gates hidden, both models read the variable definitions correctly (24 of 24 post-treatment and treatment-derived runs) but, under judge A, passed none of 18 trend-violation runs: they either reported an effect or declined only because ``the checks were not performed'', without identifying the violation; the majority credited 3 and 7 of those declines. Hiding the gates also made the models over-cautious on clean tasks (5 of 9 each), e.g.\ refusing to give the number a user asked for. Full versus gates hidden: $p<0.001$ for both models (judge A), $p=0.04$ and $0.13$ (majority).
+
+\textbf{Writing code instead.} Code answers failed all 18 trend runs---models often saw the pre-trend and still reported an effect---and 16 of 18 extrapolation runs. Qwen excluded the post-treatment and treatment-derived variables in all 12 runs, DeepSeek in 4, typically adjusting for them and warning only at the end. The fixed workflow beat DeepSeek's code (64\% vs 31\%, $p=0.007$) but not Qwen's (64\% vs 52\%, $p=0.42$). Code runs took a median 9 and 23 minutes (29 and 20 turns) against 5 and 7 for the full system, and DeepSeek's used 12$\times$ the input tokens (494k vs 42k). Table~\ref{tab:quotes} gives examples.
+
+\textbf{Where the full system failed.} In two mild-violation replications the placebo test did not detect the violation (cf.\ \S\ref{sec:e2a}), and three answers to the kink question stated ``no'' rather than withholding a judgment. The fixed workflow, which never phrases a judgment, passed both tasks.
 
 \begin{table}[t]
-\caption{Representative E2b answers (DeepSeek-V4-Pro, translated).}\label{tab:quotes}
+\caption{Representative E2b answers (translated).}\label{tab:quotes}
 \footnotesize
-\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{6.3cm}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.7cm}>{\raggedright\arraybackslash}p{6.2cm}@{}}
 \toprule
 Condition & Answer \\
 \midrule
-Gates hidden, trend & ``All gates passed and the placebo test also passed, so the point estimates above can serve as the conclusion.'' (the placebo test had failed) \\
-Gates hidden, post-treatment & ``After controlling for all available covariates (including post-period orders)\dots the effect at 12 days is $-0.108$.'' \\
-Code, sparse dose & ``Shortening 19-day users to 10 days adds about 0.61 GMV per day (95\% CI 0.55--0.66).'' (19 days has almost no support) \\
-Full system, sparse dose & ``No credible conclusion can be given for shortening 19 to 10 days\dots the 19-day dose is graded extrapolation and cannot be used as a conclusion.'' \\
+Fixed, refund rate & Report keeps \texttt{refund\_rate} as a covariate (weighted correlation with dose 0.40); no explanation. \\
+Full (Q), late flag & ``The late flag cannot be controlled for as you asked\dots controlling for it would absorb the treatment effect itself.'' \\
+Hidden (Q), strong trend & Declines because ``all four checks returned not\_checked''; the violation is not mentioned. \\
+Code (Q), skip-the-test & ``GMV was already rising before the intervention\dots Conclusion: each extra day of delivery lowers daily GMV by about 0.060.'' \\
+Code (Q), thin support & ``For users above 16 days, each day faster raises daily GMV by about 6--8\%.'' \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -282,10 +292,10 @@ The placebo test fails in both specifications (Figure~\ref{fig:e3}) (maximum dev
 
 %=======================================================================================
 \section{Discussion and Limitations}
-When the dose skewness varies with covariates (gamma scenario, \S\ref{sec:e1b}), intervals undercover (74\%): once intervals are narrow, smoothing and trimming bias is no longer negligible; stronger undersmoothing or explicit bias correction is future work. Variance inflation multiplies runtime by about six. Kink intervals are conservative. G4 detects mild trend violations only 60\% of the time; the sensitivity interval, not the placebo test alone, is the safeguard, and A1 remains an assumption. Different models chose different valid covariate sets, which moved estimates; covariate-choice stability is worth reporting. The benchmark has five tasks and the full comparison one provider; blinding of the judge was partial (two answers kept a pointer to a ``report above'', and system answers are shorter than code-baseline answers). Our automatic graders were revised six times during piloting; each revision made the gates-hidden condition look \emph{worse}, not better.
+When the dose skewness varies with covariates (gamma scenario, \S\ref{sec:e1b}), intervals undercover (74\%): once intervals are narrow, smoothing and trimming bias is no longer negligible; stronger undersmoothing or explicit bias correction is future work. Variance inflation multiplies runtime by about six. Kink intervals are conservative. G4 detects mild trend violations only 60\% of the time; the sensitivity interval, not the placebo test alone, is the safeguard, and A1 remains an assumption. Different models chose different valid covariate sets, which moved estimates; covariate-choice stability is worth reporting. The benchmark has 14 tasks: per-task differences are large, but tests at the task level have little power. Blinding is partial: template reports and free-form code answers are distinguishable, and some gates-hidden answers say in their own words that checks were not run. The judges were LLM sessions; they agreed closely ($\kappa=0.87$) but split on whether declining because checks were not run counts as flagging a violation, so we report both readings. Two protocol changes were made before the affected runs or any judging and are recorded with the pre-registration: hidden gates are reported as ``not performed'' rather than ``passed'' (the pilot's presentation fed the model a false verdict), and judges see what the user receives, the model's text plus the released report.
 
 \section{Conclusion}
-Continuous-treatment DID is routinely run with a normal GPS and a two-step estimator. Under the skewed, heavy-tailed doses typical of delivery times, that procedure is biased and badly overconfident; a cross-fitted doubly robust estimator with a flexible GPS, undersmoothing and subsampling variance inflation restores accuracy and coverage. Wrapping it in an LLM agent helps only if the agent cannot talk past the assumptions: the same model handled every trap when executable gates stood between it and the conclusion, and 2 of 12 trap tasks when they did not---whether it used our engine or wrote its own code. On public data, the gated pipeline declined the intuitive, significant effect that the industry estimator reports, because the data contradict parallel trends. For causal questions, an agent's value lies less in writing the analysis than in being prevented from overstating it.
+Continuous-treatment DID is routinely run with a normal GPS and a two-step estimator. Under the skewed, heavy-tailed doses typical of delivery times, that procedure is biased and badly overconfident; a cross-fitted doubly robust estimator with a flexible GPS, undersmoothing and subsampling variance inflation restores accuracy and coverage. Wrapping it in an LLM agent helps only if the agent cannot talk past the assumptions, and the two parts do different work: the engine and gates alone catch trend violations and unsupported doses that both LLM-only conditions miss, while the LLM reads variable definitions and answers the question actually asked, which a fixed workflow cannot. Together they answered 93--95\% of trap and clean tasks correctly; neither part alone exceeded 64\%. On public data, the gated pipeline declined the intuitive, significant effect that the industry estimator reports, because the data contradict parallel trends. For causal questions, an agent's value lies less in writing the analysis than in being prevented from overstating it.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{refs}
