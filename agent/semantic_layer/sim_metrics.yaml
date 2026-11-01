@@ -1,5 +1,5 @@
 # Semantic layer for the semi-synthetic dataset (sim/dgp.py).
-# Same YAML block format as the internship metric library, plus `period`,
+# Same YAML block format as a typical metric library, plus `period`,
 # which Gate G1 uses to reject covariates measured at or after treatment.
 metrics:
   - id: "T1"
